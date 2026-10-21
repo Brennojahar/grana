@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { BarraTitulo } from '../componentes/BarraTitulo';
 import { useFolhas } from '../componentes/Folhas';
-import { IconeChevronBaixo, IconeChevronDir, IconeChevronDuploDir, IconeChevronDuploEsq, IconeChevronEsq, TipoIcone } from '../componentes/Icones';
+import { IconeChevronBaixo, IconeChevronDir, IconeChevronDuploDir, IconeChevronDuploEsq, IconeChevronEsq, IconeHoje, TipoIcone } from '../componentes/Icones';
 import { dia as fazerDia, diaDaSemana, diasNoMes, fimDoMes, inicioDoMes, nomeMes, partes, somarMeses } from '../lib/datas';
 import { useGrana } from '../lib/estado';
 import { moeda } from '../lib/formato';
@@ -20,6 +20,11 @@ const CAMPO: Record<Tipo, 'entradas' | 'saidas' | 'diarios' | 'economias' | 'car
 const MESES_NA_TELA = 12;
 const CHAVE_RECOLHIDAS = 'grana:colunas-recolhidas';
 const MESES_CURTOS = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+
+const mesCurto = (d: Dia) => {
+  const [y, m] = partes(d);
+  return `${MESES_CURTOS[m]}/${String(y).slice(2)}`;
+};
 
 const mesAno = (d: Dia) => {
   const [y, m] = partes(d);
@@ -60,7 +65,9 @@ export function Saldos() {
   const linhaHoje = useRef<HTMLTableRowElement | null>(null);
   const grade = useRef<HTMLDivElement>(null);
 
-  const fim = fimDoMes(somarMeses(inicio, MESES_NA_TELA - 1));
+  // No celular cabe um mês por vez: `inicio` passa a ser o mês que está na tela.
+  const quantos = celular ? 1 : MESES_NA_TELA;
+  const fim = fimDoMes(somarMeses(inicio, quantos - 1));
   const porDia = useMemo(() => {
     const m = new Map<Dia, ResumoDia>();
     for (const r of resumoDiario(dados, inicio, fim, hoje)) m.set(r.dia, r);
@@ -68,7 +75,8 @@ export function Saldos() {
   }, [dados, inicio, fim, hoje]);
 
   const colunas = celular ? TIPOS.filter((t) => t.tipo === tipoCelular) : TIPOS;
-  const meses = Array.from({ length: MESES_NA_TELA }, (_, i) => somarMeses(inicio, i));
+  const meses = Array.from({ length: quantos }, (_, i) => somarMeses(inicio, i));
+  const toque = useRef<{ x: number; y: number } | null>(null);
 
   useEffect(() => {
     try {
@@ -93,6 +101,12 @@ export function Saldos() {
   };
 
   useEffect(centralizarHoje, []);
+  // Ao trocar de mês no celular: volta para o topo, ou para hoje se for o mês atual.
+  useEffect(() => {
+    if (!celular) return;
+    if (linhaHoje.current) centralizarHoje();
+    else grade.current?.scrollTo({ top: 0 });
+  }, [inicio, celular]);
   useEffect(() => {
     window.addEventListener(EVENTO_IR_PRA_HOJE, irPraHoje);
     return () => window.removeEventListener(EVENTO_IR_PRA_HOJE, irPraHoje);
@@ -100,6 +114,22 @@ export function Saldos() {
 
   const alternarColuna = (t: Tipo) => setRecolhidas((r) => (r.includes(t) ? r.filter((x) => x !== t) : [...r, t]));
   const opcoesPeriodo = Array.from({ length: 37 }, (_, i) => somarMeses(inicioDoMes(hoje), i - 12));
+  const rotuloPeriodo = (m: Dia) => (celular ? mesCurto(m) : `${mesAno(m)} - ${mesAno(fimDoMes(somarMeses(m, MESES_NA_TELA - 1)))}`);
+
+  // Deslizar o dedo para os lados troca de mês (só no celular, e só se o gesto for mais lateral que vertical).
+  const inicioToque = (e: React.TouchEvent) => {
+    const t = e.touches[0];
+    toque.current = { x: t.clientX, y: t.clientY };
+  };
+  const fimToque = (e: React.TouchEvent) => {
+    const t0 = toque.current;
+    toque.current = null;
+    if (!celular || !t0) return;
+    const t = e.changedTouches[0];
+    const dx = t.clientX - t0.x;
+    const dy = t.clientY - t0.y;
+    if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) setInicio(somarMeses(inicio, dx < 0 ? 1 : -1));
+  };
 
   return (
     <>
@@ -115,7 +145,7 @@ export function Saldos() {
             </button>
             <div style={{ position: 'relative' }}>
               <button className="periodo" onClick={() => setListaAberta((v) => !v)} aria-haspopup="listbox" aria-expanded={listaAberta}>
-                {mesAno(inicio)} - {mesAno(fim)}
+                {rotuloPeriodo(inicio)}
                 <IconeChevronBaixo />
               </button>
               {listaAberta && (
@@ -133,7 +163,7 @@ export function Saldos() {
                           setListaAberta(false);
                         }}
                       >
-                        {mesAno(m)} - {mesAno(fimDoMes(somarMeses(m, MESES_NA_TELA - 1)))}
+                        {rotuloPeriodo(m)}
                       </button>
                     ))}
                   </div>
@@ -148,15 +178,22 @@ export function Saldos() {
             </button>
           </div>
         }
+        direita={
+          celular ? (
+            <button className="icone-botao" onClick={irPraHoje} aria-label="Ir pra hoje">
+              <IconeHoje dia={partes(hoje)[2]} />
+            </button>
+          ) : undefined
+        }
       />
 
-      <div className="grade-saldos" ref={grade}>
+      <div className="grade-saldos" ref={grade} onTouchStart={inicioToque} onTouchEnd={fimToque}>
         {meses.map((mes) => {
           const [ano, m0] = partes(mes);
           const total = diasNoMes(ano, m0);
           const doMes = Array.from({ length: total }, (_, i) => porDia.get(fazerDia(ano, m0, i + 1))).filter((r): r is ResumoDia => !!r);
           return (
-            <table className="tabela" key={mes}>
+            <table className={`tabela${celular ? ' cheia' : ''}`} key={mes}>
               <thead>
                 <tr>
                   <th className="titulo-mes" colSpan={colunas.length + 2}>
@@ -207,7 +244,7 @@ export function Saldos() {
                 </tr>
               </thead>
               <tbody>
-                {Array.from({ length: 31 }, (_, i) => {
+                {Array.from({ length: celular ? total : 31 }, (_, i) => {
                   const r = i < total ? porDia.get(fazerDia(ano, m0, i + 1)) : undefined;
                   if (!r) {
                     return (
