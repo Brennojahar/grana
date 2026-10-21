@@ -46,31 +46,31 @@ export function Entrar() {
     }
   }
 
-  const titulo = recuperandoSenha ? 'Nova senha' : modo === 'entrar' ? 'Entrar' : modo === 'criar' ? 'Criar conta' : 'Esqueci a senha';
+  const titulo = recuperandoSenha ? 'nova senha' : modo === 'entrar' ? 'entrar' : modo === 'criar' ? 'criar conta' : 'esqueci a senha';
 
   return (
     <main className="entrar">
-      <div className="marca">
-        grana<span>.com</span>
+      <div className="logo" style={{ padding: 0, gap: 10, fontWeight: 700, fontSize: 18 }}>
+        <span className="logo-marca">g.</span> grana
       </div>
       <form className="entrar-corpo" onSubmit={enviar}>
-        <h1 className="titulo">{titulo}</h1>
+        <h1>{titulo}</h1>
         <div>
           {modo === 'criar' && !recuperandoSenha && (
             <label className="campo">
-              <span className="meta">Nome</span>
+              <span>nome</span>
               <input value={nome} onChange={(e) => setNome(e.target.value)} autoComplete="given-name" />
             </label>
           )}
           {!recuperandoSenha && (
             <label className="campo">
-              <span className="meta">E-mail</span>
+              <span>e-mail</span>
               <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" required />
             </label>
           )}
           {modo !== 'esqueci' && (
             <label className="campo">
-              <span className="meta">{recuperandoSenha ? 'Senha nova' : 'Senha'}</span>
+              <span>{recuperandoSenha ? 'senha nova' : 'senha'}</span>
               <input
                 type="password"
                 value={senha}
@@ -81,34 +81,34 @@ export function Entrar() {
               />
             </label>
           )}
-          {msg && <p className="aviso meta">{msg}</p>}
+          {msg && <p className="aviso" style={{ margin: '0 0 14px' }}>{msg}</p>}
           <div className="acoes">
-            <button className="botao cheio" disabled={ocupado}>
-              {ocupado ? '…' : recuperandoSenha ? 'Salvar senha' : modo === 'esqueci' ? 'Enviar link' : titulo}
+            <button className="botao cheio" style={{ width: '100%' }} disabled={ocupado}>
+              {ocupado ? '…' : recuperandoSenha ? 'salvar senha' : modo === 'esqueci' ? 'enviar link' : titulo}
             </button>
           </div>
         </div>
         {!recuperandoSenha && (
-          <div className="chips">
+          <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
             {modo !== 'entrar' && (
               <button type="button" className="botao-texto" onClick={() => setModo('entrar')}>
-                Já tenho conta
+                já tenho conta
               </button>
             )}
             {modo !== 'criar' && (
               <button type="button" className="botao-texto" onClick={() => setModo('criar')}>
-                Criar conta
+                criar conta
               </button>
             )}
             {modo !== 'esqueci' && (
               <button type="button" className="botao-texto" onClick={() => setModo('esqueci')}>
-                Esqueci a senha
+                esqueci a senha
               </button>
             )}
           </div>
         )}
       </form>
-      <span className="meta suave">seu dinheiro, dia a dia</span>
+      <span className="meta">seu dinheiro, dia a dia</span>
     </main>
   );
 }

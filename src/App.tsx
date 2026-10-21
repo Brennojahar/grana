@@ -1,12 +1,14 @@
-import { BrowserRouter, Link, NavLink, Navigate, Outlet, Route, Routes } from 'react-router-dom';
+import { useState } from 'react';
+import { BrowserRouter, Link, NavLink, Navigate, Outlet, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { ProvedorFolhas, useFolhas } from './componentes/Folhas';
-import { IconeAjustes, IconeHorizonte, IconeMais, IconeSaldos, IconeTotais } from './componentes/Icones';
+import { IconeAdicionar, IconeHoje, IconeHorizonte, IconeMenu, IconeRecolher, IconeSaldos, IconeTotais } from './componentes/Icones';
+import { partes } from './lib/datas';
 import { ProvedorGrana, useGrana } from './lib/estado';
-import { Ajustes } from './telas/Ajustes';
 import { Entrar } from './telas/Entrar';
 import { Horizonte } from './telas/Horizonte';
-import { Saldos } from './telas/Saldos';
-import { Totais } from './telas/Totais';
+import { Ajuda, Cartoes, Configuracoes, Menu, Perfil, PrevisaoDiario, Repeticoes } from './telas/Menu';
+import { EVENTO_IR_PRA_HOJE, Saldos } from './telas/Saldos';
+import { Totais, TotaisMetrica } from './telas/Totais';
 
 export function App() {
   return (
@@ -26,9 +28,16 @@ function Portao() {
       <Routes>
         <Route element={<Casca />}>
           <Route index element={<Saldos />} />
-          <Route path="totais" element={<Totais />} />
           <Route path="horizonte" element={<Horizonte />} />
-          <Route path="ajustes" element={<Ajustes />} />
+          <Route path="totais" element={<Totais />} />
+          <Route path="totais/:metrica" element={<TotaisMetrica />} />
+          <Route path="menu" element={<Menu />} />
+          <Route path="menu/perfil" element={<Perfil />} />
+          <Route path="menu/previsao-diario" element={<PrevisaoDiario />} />
+          <Route path="menu/cartoes" element={<Cartoes />} />
+          <Route path="menu/repeticoes" element={<Repeticoes />} />
+          <Route path="menu/configuracoes" element={<Configuracoes />} />
+          <Route path="menu/ajuda" element={<Ajuda />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>
@@ -36,67 +45,113 @@ function Portao() {
   );
 }
 
-const LINKS = [
-  { to: '/', nome: 'saldos', Icone: IconeSaldos, fim: true },
-  { to: '/totais', nome: 'totais', Icone: IconeTotais },
-  { to: '/horizonte', nome: 'horizonte', Icone: IconeHorizonte },
-  { to: '/ajustes', nome: 'ajustes', Icone: IconeAjustes },
-];
+const CHAVE_RECOLHIDA = 'grana:menu-recolhido';
 
 function Casca() {
-  const { carregando, erro, limparErro, modo, email } = useGrana();
-  const { lancar } = useFolhas();
+  const { carregando, erro, limparErro, hoje, email, modo } = useGrana();
+  const { abrirAdicionar } = useFolhas();
+  const navegar = useNavigate();
+  const local = useLocation();
+  const [recolhida, setRecolhida] = useState(() => {
+    try {
+      return localStorage.getItem(CHAVE_RECOLHIDA) === '1';
+    } catch {
+      return false;
+    }
+  });
+
+  const alternarRecolhida = () => {
+    setRecolhida((r) => {
+      try {
+        localStorage.setItem(CHAVE_RECOLHIDA, r ? '0' : '1');
+      } catch {
+        /* sem armazenamento */
+      }
+      return !r;
+    });
+  };
+
+  const irPraHoje = () => {
+    if (local.pathname !== '/') navegar('/');
+    // Espera a grade montar (se acabou de navegar) antes de pedir para centralizar.
+    window.setTimeout(() => window.dispatchEvent(new Event(EVENTO_IR_PRA_HOJE)), 60);
+  };
+
+  const menuAtivo = local.pathname.startsWith('/menu');
 
   return (
-    <div className="casca">
+    <div className={`casca${recolhida ? ' recolhida' : ''}`}>
       <nav className="lateral" aria-label="Principal">
-        <Link to="/" className="marca">
-          <span>
-            grana<span>.com</span>
-          </span>
+        <Link to="/" className="logo" aria-label="grana.com, início">
+          <span className="logo-marca">g.</span>
         </Link>
-        {LINKS.map(({ to, nome, Icone, fim }) => (
-          <NavLink key={to} to={to} end={fim}>
-            <Icone />
-            {nome}
-          </NavLink>
-        ))}
+        <NavLink to="/" end className="item-nav">
+          <IconeSaldos />
+          <span>saldos</span>
+        </NavLink>
+        <NavLink to="/totais" className="item-nav">
+          <IconeTotais />
+          <span>totais</span>
+        </NavLink>
+        <NavLink to="/menu" className="item-nav" aria-current={menuAtivo ? 'page' : undefined}>
+          <IconeMenu />
+          <span>menu</span>
+        </NavLink>
         <hr />
-        <button onClick={() => lancar()}>
-          <IconeMais />
-          lançar
+        <button className="item-nav" onClick={(e) => abrirAdicionar(e.currentTarget)}>
+          <IconeAdicionar />
+          <span>adicionar</span>
         </button>
-        <div className="rodape meta">{modo === 'local' ? 'modo local, só neste navegador' : email}</div>
+        <button className="item-nav" onClick={irPraHoje}>
+          <IconeHoje dia={partes(hoje)[2]} />
+          <span>ir pra hoje</span>
+        </button>
+        <NavLink to="/horizonte" className="item-nav">
+          <IconeHorizonte />
+          <span>horizonte</span>
+        </NavLink>
+        <div className="rodape-lateral" title={email ?? undefined}>
+          {modo === 'local' ? 'modo local' : email}
+        </div>
+        <button className="recolher" onClick={alternarRecolhida} aria-label={recolhida ? 'Abrir menu lateral' : 'Fechar menu lateral'}>
+          <IconeRecolher />
+        </button>
       </nav>
 
-      <div className="conteudo">
+      <div className="principal">
         {erro && (
-          <div className="aviso cheio" role="alert">
-            <span className="meta">{erro}</span>
+          <div className="aviso erro" role="alert">
+            <span>{erro}</span>
             <button className="botao-texto" onClick={limparErro}>
               ok
             </button>
           </div>
         )}
-        <main>{carregando ? <div className="carregando meta">carregando…</div> : <Outlet />}</main>
+        <main>{carregando ? <div className="carregando">carregando…</div> : <Outlet />}</main>
       </div>
 
       <nav className="navegacao" aria-label="Principal">
-        {LINKS.slice(0, 2).map(({ to, nome, Icone, fim }) => (
-          <NavLink key={to} to={to} end={fim}>
-            <Icone />
-            {nome}
-          </NavLink>
-        ))}
-        <button className="botao-lancar" onClick={() => lancar()} aria-label="Lançar">
-          +
+        <NavLink to="/" end>
+          <IconeSaldos />
+          saldos
+        </NavLink>
+        <NavLink to="/totais">
+          <IconeTotais />
+          totais
+        </NavLink>
+        <button className="botao-lancar" onClick={() => abrirAdicionar(null)} aria-label="Adicionar">
+          <svg viewBox="0 0 20 20" width={22} height={22} aria-hidden="true">
+            <path d="M10 4v12M4 10h12" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" />
+          </svg>
         </button>
-        {LINKS.slice(2).map(({ to, nome, Icone }) => (
-          <NavLink key={to} to={to}>
-            <Icone />
-            {nome}
-          </NavLink>
-        ))}
+        <NavLink to="/horizonte">
+          <IconeHorizonte />
+          horizonte
+        </NavLink>
+        <NavLink to="/menu" aria-current={menuAtivo ? 'page' : undefined}>
+          <IconeMenu />
+          menu
+        </NavLink>
       </nav>
     </div>
   );

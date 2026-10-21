@@ -1,19 +1,21 @@
-import { createContext, useContext, useMemo, useState, type ReactNode } from 'react';
-import { diaDaSemana, rotuloDia } from '../lib/datas';
+import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { nomeMes, partes, somarDias } from '../lib/datas';
 import { useGrana } from '../lib/estado';
+import { moeda } from '../lib/formato';
 import { movimentos, resumoDiario } from '../lib/motor';
+import { rotulo, TIPOS } from '../lib/rotulos';
 import type { Dia, Movimento, Tipo } from '../lib/tipos';
-import { Folha } from './Folha';
-import { FormLancamento, TIPOS } from './FormLancamento';
-import { TipoIcone } from './Icones';
-import { Valor } from './Valor';
+import { FormLancamento } from './FormLancamento';
+import { IconeChevronBaixo, IconeChevronDir, IconeChevronEsq, IconeFechar, IconeFiltro, IconeMais, PrevisaoIcone, TipoIcone } from './Icones';
 
-type Aberta = { qual: 'novo'; data: Dia; tipo?: Tipo } | { qual: 'editar'; mov: Movimento } | { qual: 'dia'; dia: Dia } | null;
+type Aberta = { qual: 'novo'; data: Dia; tipo?: Tipo } | { qual: 'editar'; mov: Movimento } | null;
 
 interface Folhas {
+  /** Abre o menu "adicionar" perto do elemento (no celular, sobe de baixo). */
+  abrirAdicionar(ancora?: HTMLElement | null, data?: Dia): void;
   lancar(data?: Dia, tipo?: Tipo): void;
   editarMov(mov: Movimento): void;
-  verDia(dia: Dia): void;
+  verDia(dia: Dia, filtro?: Tipo | null): void;
 }
 
 const Contexto = createContext<Folhas | null>(null);
@@ -24,90 +26,173 @@ export function useFolhas(): Folhas {
   return c;
 }
 
-export const nomeTipo = (t: Tipo) => TIPOS.find((x) => x.tipo === t)!.nome;
+export const nomeTipo = (t: Tipo) => rotulo(t).nome;
 
 export function ProvedorFolhas({ children }: { children: ReactNode }) {
   const { hoje } = useGrana();
   const [aberta, setAberta] = useState<Aberta>(null);
+  const [menu, setMenu] = useState<{ x: number; y: number; data?: Dia } | null>(null);
+  const [gaveta, setGaveta] = useState<{ dia: Dia; filtro: Tipo | null } | null>(null);
+
   const api = useMemo<Folhas>(
     () => ({
+      abrirAdicionar: (ancora, data) => {
+        const r = ancora?.getBoundingClientRect();
+        setMenu({ x: r ? r.right + 8 : 0, y: r ? Math.min(r.top, window.innerHeight - 420) : 0, data });
+      },
       lancar: (data, tipo) => setAberta({ qual: 'novo', data: data ?? hoje, tipo }),
       editarMov: (mov) => setAberta({ qual: 'editar', mov }),
-      verDia: (dia) => setAberta({ qual: 'dia', dia }),
+      verDia: (dia, filtro = null) => setGaveta({ dia, filtro }),
     }),
     [hoje],
   );
-  const fechar = () => setAberta(null);
 
   return (
     <Contexto.Provider value={api}>
       {children}
-      {aberta?.qual === 'novo' && <FormLancamento novo={{ data: aberta.data, tipo: aberta.tipo }} onFechar={fechar} />}
-      {aberta?.qual === 'editar' && <FormLancamento mov={aberta.mov} onFechar={fechar} />}
-      {aberta?.qual === 'dia' && <DiaDetalhe dia={aberta.dia} onFechar={fechar} abrir={setAberta} />}
+      {menu && (
+        <>
+          <div className="fundo-transparente" onClick={() => setMenu(null)} />
+          <div className="menu-adicionar" role="menu" style={{ left: menu.x, top: menu.y }}>
+            <header>adicionar</header>
+            {TIPOS.map((t) => (
+              <button
+                key={t.tipo}
+                role="menuitem"
+                onClick={() => {
+                  setMenu(null);
+                  setAberta({ qual: 'novo', data: menu.data ?? hoje, tipo: t.tipo });
+                }}
+              >
+                <span className="nome">
+                  <TipoIcone tipo={t.tipo} tamanho={20} />
+                  {t.menu}
+                </span>
+                <small>{t.dica}</small>
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+      {gaveta && (
+        <GavetaDia
+          dia={gaveta.dia}
+          filtro={gaveta.filtro}
+          onMudar={(dia, filtro) => setGaveta({ dia, filtro })}
+          onFechar={() => setGaveta(null)}
+          onEditar={(mov) => setAberta({ qual: 'editar', mov })}
+          onAdicionar={(el) => api.abrirAdicionar(el, gaveta.dia)}
+        />
+      )}
+      {aberta?.qual === 'novo' && <FormLancamento novo={{ data: aberta.data, tipo: aberta.tipo }} onFechar={() => setAberta(null)} />}
+      {aberta?.qual === 'editar' && <FormLancamento mov={aberta.mov} onFechar={() => setAberta(null)} />}
     </Contexto.Provider>
   );
 }
 
-function DiaDetalhe({ dia, onFechar, abrir }: { dia: Dia; onFechar(): void; abrir(a: Aberta): void }) {
+const MESES_CURTOS = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+
+interface PropsGaveta {
+  dia: Dia;
+  filtro: Tipo | null;
+  onMudar(dia: Dia, filtro: Tipo | null): void;
+  onFechar(): void;
+  onEditar(mov: Movimento): void;
+  onAdicionar(el: HTMLElement): void;
+}
+
+/** Painel lateral com as movimentações de um dia, com filtro por tipo. */
+function GavetaDia({ dia, filtro, onMudar, onFechar, onEditar, onAdicionar }: PropsGaveta) {
   const { dados, hoje, marcarCheckin } = useGrana();
-  const movs = movimentos(dados, dia, dia);
+  const todos = movimentos(dados, dia, dia);
+  const movs = filtro ? todos.filter((m) => m.tipo === filtro) : todos;
   const resumo = resumoDiario(dados, dia, dia, hoje)[0];
   const feito = dados.checkins.includes(dia);
+  const [, m0, dd] = partes(dia);
+  const mostrarPrevisao = resumo?.diarioPrevisto && (!filtro || filtro === 'diario');
+
+  useEffect(() => {
+    const tecla = (e: KeyboardEvent) => e.key === 'Escape' && onFechar();
+    window.addEventListener('keydown', tecla);
+    return () => window.removeEventListener('keydown', tecla);
+  }, [onFechar]);
 
   return (
-    <Folha titulo={rotuloDia(dia)} meta={`${diaDaSemana(dia)}${dia === hoje ? ' · hoje' : ''}`} onFechar={onFechar}>
-      <ul className="lista">
-        {movs.map((m) => (
-          <li key={m.chave}>
-            <button className="item" onClick={() => abrir({ qual: 'editar', mov: m })}>
-              <TipoIcone tipo={m.tipo} />
-              <span className="item-desc">
-                {m.descricao || nomeTipo(m.tipo)}
-                <span className="meta suave">
-                  {nomeTipo(m.tipo)}
-                  {m.recorrencia_id ? ` · repete${m.total ? ` · ${m.posicao}/${m.total}` : ''}` : ''}
-                </span>
-              </span>
-              <span className="item-valor">
-                {m.tipo === 'entrada' ? '+' : '−'}
-                <Valor v={m.valor} />
-              </span>
-            </button>
-          </li>
-        ))}
-        {resumo?.diarioPrevisto && (
-          <li className="item">
-            <TipoIcone tipo="diario" apagado />
-            <span className="item-desc previsto">
-              previsão de gasto diário
-              <span className="meta suave">some quando você lança um diário neste dia</span>
-            </span>
-            <span className="item-valor previsto">
-              −<Valor v={resumo.diarios} />
-            </span>
-          </li>
-        )}
-        {movs.length === 0 && !resumo?.diarioPrevisto && <li className="vazio meta suave">Nada lançado neste dia.</li>}
-      </ul>
-
-      <div className="linha-topo" style={{ marginTop: 18 }}>
-        <span className="meta">saldo no fim do dia</span>
-        <span className="meta-num">
-          <Valor v={resumo?.saldo ?? 0} />
-        </span>
-      </div>
-
-      <div className="acoes">
-        {dia <= hoje && (
-          <button className="botao" aria-pressed={feito} onClick={() => marcarCheckin(dia, !feito)}>
-            {feito ? 'dia conferido ✓' : 'conferi este dia'}
+    <>
+      <div className="fundo-gaveta" onClick={onFechar} />
+      <aside className="gaveta" role="dialog" aria-label={`Movimentações de ${dd} de ${nomeMes(m0)}`}>
+        <div className="cabeca-gaveta">
+          <button className="icone-botao" onClick={onFechar} aria-label="Fechar">
+            <IconeFechar />
           </button>
-        )}
-        <button className="botao cheio" onClick={() => abrir({ qual: 'novo', data: dia })}>
-          lançar neste dia
-        </button>
-      </div>
-    </Folha>
+          <div className="dia-gaveta">
+            <button className="icone-botao" onClick={() => onMudar(somarDias(dia, -1), filtro)} aria-label="Dia anterior">
+              <IconeChevronEsq />
+            </button>
+            {dd}/{MESES_CURTOS[m0]}
+            <button className="icone-botao" onClick={() => onMudar(somarDias(dia, 1), filtro)} aria-label="Próximo dia">
+              <IconeChevronDir />
+            </button>
+          </div>
+          <button className="icone-botao" onClick={(e) => onAdicionar(e.currentTarget)} aria-label="Adicionar neste dia">
+            <IconeMais />
+          </button>
+        </div>
+
+        <label className="filtro-gaveta">
+          <IconeFiltro />
+          {filtro ? <TipoIcone tipo={filtro} /> : null}
+          <span style={{ flex: 1 }}>{filtro ? rotulo(filtro).plural : 'todas as movimentações'}</span>
+          <IconeChevronBaixo />
+          <select value={filtro ?? ''} onChange={(e) => onMudar(dia, (e.target.value || null) as Tipo | null)} aria-label="Filtrar por tipo">
+            <option value="">todas as movimentações</option>
+            {TIPOS.map((t) => (
+              <option key={t.tipo} value={t.tipo}>
+                {t.plural}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <div className="corpo-gaveta">
+          {movs.map((mv) => (
+            <button key={mv.chave} className="mov" onClick={() => onEditar(mv)}>
+              <TipoIcone tipo={mv.tipo} tamanho={20} />
+              <span className="desc">
+                <b>{mv.descricao || rotulo(mv.tipo).nome}</b>
+                <small>
+                  {rotulo(mv.tipo).nome}
+                  {mv.recorrencia_id ? ` · repete${mv.total ? ` · ${mv.posicao}/${mv.total}` : ''}` : ''}
+                </small>
+              </span>
+              <span className="valor">{moeda(mv.valor)}</span>
+            </button>
+          ))}
+          {mostrarPrevisao && (
+            <div className="mov" style={{ cursor: 'default' }}>
+              <PrevisaoIcone tamanho={20} />
+              <span className="desc">
+                <b>previsão de diário</b>
+                <small>sai quando você lança um diário neste dia</small>
+              </span>
+              <span className="valor suave">{moeda(resumo.diarios)}</span>
+            </div>
+          )}
+          {movs.length === 0 && !mostrarPrevisao && <p className="meta" style={{ padding: '18px 6px' }}>nenhuma movimentação {filtro ? `de ${rotulo(filtro).nome} ` : ''}neste dia.</p>}
+
+          {resumo && (
+            <div className={`saldo-gaveta${resumo.saldo < -0.004 ? ' neg' : ''}`}>
+              <span>saldo do dia</span>
+              <span>{moeda(resumo.saldo)}</span>
+            </div>
+          )}
+          {dia <= hoje && (
+            <button className="botao" style={{ width: '100%' }} aria-pressed={feito} onClick={() => marcarCheckin(dia, !feito)}>
+              {feito ? 'dia conferido ✓' : 'marcar dia como conferido'}
+            </button>
+          )}
+        </div>
+      </aside>
+    </>
   );
 }

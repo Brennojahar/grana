@@ -50,6 +50,19 @@ describe('motor', () => {
     ]);
   });
 
+  it('performance desconta economias; sobra não', () => {
+    const d = base();
+    const l = (data: string, tipo: 'entrada' | 'saida' | 'economia' | 'cartao', valor: number) => ({
+      id: id(), data, tipo, valor, descricao: '', cartao_id: null, recorrencia_id: null, ocorrencia: null, pulado: false,
+    });
+    d.lancamentos = [l('2026-03-01', 'entrada', 1000), l('2026-03-02', 'saida', 300), l('2026-03-03', 'economia', 200), l('2026-03-04', 'cartao', 100)];
+    const t = totaisMes(d, '2026-03-01', '2026-03-31');
+    expect(t.custoDeVida).toBe(400);
+    expect(t.sobra).toBe(600);
+    expect(t.performance).toBe(400);
+    expect(t.economizado).toBeCloseTo(0.2);
+  });
+
   it('série com fim para no dia do fim', () => {
     const d = base();
     d.recorrencias = [{ id: 'r', tipo: 'entrada', descricao: 'x', valor: 1, frequencia: 'semanal', inicio: '2026-01-01', ocorrencias: null, fim: '2026-01-20', cartao_id: null }];

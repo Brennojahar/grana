@@ -1,196 +1,202 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 import { BarraTitulo } from '../componentes/BarraTitulo';
-import { TipoIcone } from '../componentes/Icones';
-import { Valor } from '../componentes/Valor';
-import { diferencaDias, inicioDoMes, nomeMes, partes, rotuloMesCurto, somarMeses } from '../lib/datas';
+import { IconeChevronDir, IconeChevronEsq, PrevisaoIcone, TipoIcone } from '../componentes/Icones';
+import { inicioDoMes, nomeMes, partes, somarMeses } from '../lib/datas';
 import { useGrana } from '../lib/estado';
-import { moeda, porcentagem } from '../lib/formato';
-import { primeiroDia, totaisAno, totaisMes } from '../lib/motor';
+import { moeda } from '../lib/formato';
+import { totaisAno, totaisMes, type TotaisMes } from '../lib/motor';
+import { TIPOS } from '../lib/rotulos';
+
+const MESES_CURTOS = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+const pct = new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const porcento = (v: number) => `${pct.format(v * 100)}%`;
+
+type Metrica = 'performance' | 'economizado' | 'custo-de-vida' | 'diario-medio';
+
+const METRICAS: Record<Metrica, { titulo: string; valor(t: TotaisMes): string; formula: ReactNode }> = {
+  performance: {
+    titulo: 'performance',
+    valor: (t) => moeda(t.performancePrevista),
+    formula: (
+      <>
+        <TipoIcone tipo="entrada" tamanho={20} /> − <TipoIcone tipo="saida" tamanho={20} /> − <TipoIcone tipo="diario" tamanho={20} /> −{' '}
+        <TipoIcone tipo="economia" tamanho={20} /> − <TipoIcone tipo="cartao" tamanho={20} /> − <PrevisaoIcone tamanho={20} />
+      </>
+    ),
+  },
+  economizado: {
+    titulo: 'economizado',
+    valor: (t) => porcento(t.economizado),
+    formula: (
+      <>
+        <TipoIcone tipo="economia" tamanho={20} /> ÷ <TipoIcone tipo="entrada" tamanho={20} />
+      </>
+    ),
+  },
+  'custo-de-vida': {
+    titulo: 'custo de vida',
+    valor: (t) => moeda(t.custoDeVidaPrevisto),
+    formula: (
+      <>
+        <TipoIcone tipo="saida" tamanho={20} /> + <TipoIcone tipo="diario" tamanho={20} /> + <TipoIcone tipo="cartao" tamanho={20} /> + <PrevisaoIcone tamanho={20} />
+      </>
+    ),
+  },
+  'diario-medio': {
+    titulo: 'diário médio',
+    valor: (t) => moeda(t.diarioMedio),
+    formula: (
+      <>
+        <TipoIcone tipo="diario" tamanho={20} /> ÷ dias
+      </>
+    ),
+  },
+};
+
+function SeletorMes({ mes, setMes, rotulo }: { mes: string; setMes(m: string): void; rotulo: string }) {
+  return (
+    <div className="seletor">
+      <button className="seta" onClick={() => setMes(somarMeses(mes, -1))} aria-label="Anterior">
+        <IconeChevronEsq />
+      </button>
+      <span style={{ minWidth: 86, textAlign: 'center', fontSize: 16 }}>{rotulo}</span>
+      <button className="seta" onClick={() => setMes(somarMeses(mes, 1))} aria-label="Próximo">
+        <IconeChevronDir />
+      </button>
+    </div>
+  );
+}
 
 export function Totais() {
   const { dados, hoje } = useGrana();
+  const navegar = useNavigate();
   const [mes, setMes] = useState(() => inicioDoMes(hoje));
-  const [ano, setAno] = useState(() => partes(hoje)[0]);
-  const [comPrevisao, setComPrevisao] = useState(true);
-
   const t = useMemo(() => totaisMes(dados, mes, hoje), [dados, mes, hoje]);
-  const meses = useMemo(() => totaisAno(dados, ano, hoje), [dados, ano, hoje]);
+  const [ano, m0] = partes(mes);
 
-  const linhas = meses.map((m) => ({
-    ...m,
-    custo: comPrevisao ? m.custoDeVidaPrevisto : m.custoDeVida,
-    sob: comPrevisao ? m.sobraPrevista : m.sobra,
-  }));
-  const soma = (k: 'entradas' | 'custo' | 'sob' | 'economias' | 'diarios') => linhas.reduce((s, l) => s + l[k], 0);
-  const entradasAno = soma('entradas');
-  // Dias com histórico no ano: do primeiro lançamento (ou 1º de janeiro) até hoje.
-  const primeiro = primeiroDia(dados);
-  const deAno = primeiro && primeiro > `${ano}-01-01` ? primeiro : `${ano}-01-01`;
-  const ateAno = hoje < `${ano}-12-31` ? hoje : `${ano}-12-31`;
-  const decorridos = Math.max(0, diferencaDias(deAno, ateAno) + 1);
-  const maiorAbs = Math.max(1, ...linhas.map((l) => Math.abs(l.sob)));
-  const temPrevisao = t.custoDeVidaPrevisto !== t.custoDeVida;
+  const abrir = (m: Metrica) => navegar(`/totais/${m}?ano=${ano}`);
 
   return (
     <>
-      <BarraTitulo titulo="totais">
-        <div className="seletor-periodo">
-          <button className="seta" onClick={() => setMes(somarMeses(mes, -1))} aria-label="Mês anterior">
-            ‹
+      <BarraTitulo titulo="totais" centro={<SeletorMes mes={mes} setMes={setMes} rotulo={`${MESES_CURTOS[m0]}/${ano}`} />} />
+      <div className="pagina">
+        <div className="rotulo">cálculos do mês</div>
+        <div className="cartoes">
+          <button className="cartao-total" onClick={() => abrir('performance')}>
+            <h3>performance</h3>
+            <div className="formula">{METRICAS.performance.formula}</div>
+            <span className="grande">{moeda(t.performancePrevista)}</span>
+            <span className="sub">{t.performancePrevista >= 0 ? 'sobrou dinheiro' : 'faltou dinheiro'}</span>
           </button>
-          <button className="periodo" onClick={() => setMes(inicioDoMes(hoje))} title="Voltar para este mês">
-            {rotuloMesCurto(mes)}
+
+          <button className="cartao-total" onClick={() => abrir('economizado')}>
+            <h3>economizado</h3>
+            <div className="formula">
+              <TipoIcone tipo="economia" tamanho={20} />
+              <span className="progresso" role="img" aria-label={`${porcento(t.economizado)} das entradas`}>
+                <i style={{ width: `${Math.min(100, t.economizado * 100)}%` }} />
+              </span>
+              <TipoIcone tipo="entrada" tamanho={20} />
+            </div>
+            <span className="grande">{porcento(t.economizado)}</span>
+            <span className="sub">{t.economias > 0 ? `${moeda(t.economias)} guardados` : 'nada guardado'}</span>
           </button>
-          <button className="seta" onClick={() => setMes(somarMeses(mes, 1))} aria-label="Próximo mês">
-            ›
+
+          <button className="cartao-total" onClick={() => abrir('custo-de-vida')}>
+            <h3>custo de vida</h3>
+            <div className="formula">{METRICAS['custo-de-vida'].formula}</div>
+            <span className="grande">{moeda(t.custoDeVidaPrevisto)}</span>
+            <span className="sub">{t.custoDeVidaPrevisto <= t.entradas ? 'dentro da renda' : 'acima da renda'}</span>
+          </button>
+
+          <button className="cartao-total" onClick={() => abrir('diario-medio')}>
+            <h3>diário médio</h3>
+            <div className="formula">
+              <TipoIcone tipo="diario" tamanho={20} /> / {t.diasDecorridos || t.diasNoMes}
+            </div>
+            <span className="grande">{moeda(t.diarioMedio)}</span>
+            <span className="sub">
+              <PrevisaoIcone tamanho={18} /> {moeda(t.previsaoDiaria)}
+            </span>
           </button>
         </div>
-      </BarraTitulo>
 
-      <p className="meta" style={{ margin: '0 0 10px' }}>
-        cálculos de {nomeMes(partes(mes)[1])}
-        {temPrevisao ? ', já contando a previsão do diário nos dias que faltam' : ''}
-      </p>
-
-      <div className="cartoes">
-        <article className="cartao-total">
-          <h3>sobra</h3>
-          <div className="formula">
-            <TipoIcone tipo="entrada" /> − <TipoIcone tipo="saida" /> − <TipoIcone tipo="diario" /> − <TipoIcone tipo="cartao" />
-          </div>
-          <span className="grande">
-            <Valor v={t.sobraPrevista} cifrao />
-          </span>
-          <span className="meta">{t.sobraPrevista >= 0 ? 'sobrou dinheiro' : 'faltou dinheiro'}</span>
-        </article>
-
-        <article className="cartao-total">
-          <h3>guardado</h3>
-          <div className="formula">
-            <TipoIcone tipo="economia" /> ÷ <TipoIcone tipo="entrada" />
-          </div>
-          <div className="progresso" role="img" aria-label={`${porcentagem(t.economizado)} das entradas`}>
-            <i style={{ width: `${Math.min(100, t.economizado * 100)}%` }} />
-          </div>
-          <span className="grande">{porcentagem(t.economizado)}</span>
-          <span className="meta">{t.economias > 0 ? `${moeda(t.economias)} guardados` : 'nada guardado'}</span>
-        </article>
-
-        <article className="cartao-total">
-          <h3>custo de vida</h3>
-          <div className="formula">
-            <TipoIcone tipo="saida" /> + <TipoIcone tipo="diario" /> + <TipoIcone tipo="cartao" />
-          </div>
-          <span className="grande">
-            <Valor v={t.custoDeVidaPrevisto} cifrao />
-          </span>
-          <span className="meta">{t.custoDeVidaPrevisto <= t.entradas ? 'dentro da renda' : 'acima da renda'}</span>
-        </article>
-
-        <article className="cartao-total">
-          <h3>diário médio</h3>
-          <div className="formula">
-            <TipoIcone tipo="diario" /> ÷ {t.diasDecorridos || '—'} {t.diasDecorridos === 1 ? 'dia' : 'dias'}
-          </div>
-          <span className="grande">
-            <Valor v={t.diarioMedio} cifrao />
-          </span>
-          <span className="meta">previsão {moeda(t.previsaoDiaria)} por dia</span>
-        </article>
-      </div>
-
-      <section className="secao">
-        <div className="cabeca-secao">
-          <div className="seletor-periodo">
-            <button className="seta" onClick={() => setAno(ano - 1)} aria-label="Ano anterior">
-              ‹
-            </button>
-            <h2 className="subtitulo">{ano}</h2>
-            <button className="seta" onClick={() => setAno(ano + 1)} aria-label="Próximo ano">
-              ›
-            </button>
-          </div>
-          <div className="chips">
-            <button className="botao" aria-pressed={comPrevisao} onClick={() => setComPrevisao(true)}>
-              com previsão
-            </button>
-            <button className="botao" aria-pressed={!comPrevisao} onClick={() => setComPrevisao(false)}>
-              só o lançado
-            </button>
-          </div>
+        <div className="rotulo" style={{ marginTop: 28 }}>
+          movimentações do mês
         </div>
-
-        <div className="grade-meta" style={{ marginBottom: 14 }}>
-          <div>
-            <span className="meta">entradas</span>
-            <span className="meta-num">
-              <Valor v={entradasAno} />
-            </span>
-          </div>
-          <div>
-            <span className="meta">custo de vida</span>
-            <span className="meta-num">
-              <Valor v={soma('custo')} />
-            </span>
-          </div>
-          <div>
-            <span className="meta">sobra</span>
-            <span className="meta-num">
-              <Valor v={soma('sob')} />
-            </span>
-          </div>
-          <div>
-            <span className="meta">diário médio</span>
-            <span className="meta-num">
-              <Valor v={decorridos ? soma('diarios') / decorridos : 0} />
-            </span>
-          </div>
+        <div className="caixa">
+          {TIPOS.map((tp) => {
+            const v = { entrada: t.entradas, saida: t.saidas, diario: t.diarios, economia: t.economias, cartao: t.cartao }[tp.tipo];
+            return (
+              <div className="linha-caixa" key={tp.tipo}>
+                <TipoIcone tipo={tp.tipo} tamanho={20} />
+                <span className="forte">{tp.plural}</span>
+                <span className="fim">{moeda(v)}</span>
+              </div>
+            );
+          })}
         </div>
-
-        <div style={{ overflowX: 'auto' }}>
-          <table className="livro">
-            <thead>
-              <tr>
-                <th>mês</th>
-                <th>entradas</th>
-                <th>custo de vida</th>
-                <th>sobra</th>
-                <th className="col-larga" style={{ width: '22%' }} />
-                <th className="col-larga">guardado</th>
-              </tr>
-            </thead>
-            <tbody>
-              {linhas.map((l, i) => (
-                <tr key={l.mes} className={l.mes.slice(0, 7) === hoje.slice(0, 7) ? 'hoje' : ''}>
-                  <td>
-                    <button className="botao-texto" style={{ color: 'inherit' }} onClick={() => setMes(l.mes)}>
-                      {nomeMes(i)}
-                    </button>
-                  </td>
-                  <td>
-                    <Valor v={l.entradas} traco />
-                  </td>
-                  <td>
-                    <Valor v={l.custo} traco previsto={comPrevisao && l.custo !== l.custoDeVida} />
-                  </td>
-                  <td>
-                    <Valor v={l.sob} traco />
-                  </td>
-                  <td className="col-larga">
-                    <span className={`barra-mes ${l.sob < 0 ? 'neg' : ''}`} style={{ display: 'block' }}>
-                      <i style={{ width: `${(Math.abs(l.sob) / maiorAbs) * 100}%` }} />
-                    </span>
-                  </td>
-                  <td className="col-larga">{l.entradas > 0 ? porcentagem(l.economizado) : '—'}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        <p className="meta" style={{ marginTop: 12 }}>
-          Custo de vida = saídas + diário + cartão. Sobra = entradas − custo de vida. Economias não contam como custo.
+        <p className="meta" style={{ marginTop: 14 }}>
+          {nomeMes(m0)}: os cartões contam a previsão de diário nos dias que ainda não chegaram.
         </p>
-      </section>
+      </div>
+    </>
+  );
+}
+
+/** Uma métrica mês a mês ao longo do ano (aberta ao tocar num cartão). */
+export function TotaisMetrica() {
+  const { dados, hoje } = useGrana();
+  const { metrica } = useParams();
+  const params = new URLSearchParams(location.search);
+  const [ano, setAno] = useState(() => Number(params.get('ano')) || partes(hoje)[0]);
+  const m = METRICAS[(metrica as Metrica) ?? 'performance'] ?? METRICAS.performance;
+  const meses = useMemo(() => totaisAno(dados, ano, hoje), [dados, ano, hoje]);
+
+  const soma = (f: (t: TotaisMes) => number) => meses.reduce((s, t) => s + f(t), 0);
+  const entradas = soma((t) => t.entradas);
+  const resumoAno =
+    metrica === 'economizado'
+      ? porcento(entradas > 0 ? soma((t) => t.economias) / entradas : 0)
+      : metrica === 'custo-de-vida'
+        ? moeda(soma((t) => t.custoDeVidaPrevisto))
+        : metrica === 'diario-medio'
+          ? moeda(soma((t) => t.diasDecorridos) ? soma((t) => t.diarios) / soma((t) => t.diasDecorridos) : 0)
+          : moeda(soma((t) => t.performancePrevista));
+
+  return (
+    <>
+      <BarraTitulo
+        titulo={m.titulo}
+        voltar="/totais"
+        centro={
+          <div className="seletor">
+            <button className="seta" onClick={() => setAno(ano - 1)} aria-label="Ano anterior">
+              <IconeChevronEsq />
+            </button>
+            <span style={{ minWidth: 60, textAlign: 'center', fontSize: 16 }}>{ano}</span>
+            <button className="seta" onClick={() => setAno(ano + 1)} aria-label="Próximo ano">
+              <IconeChevronDir />
+            </button>
+          </div>
+        }
+      />
+      <div className="pagina estreita">
+        <div className="cartao-total" style={{ marginBottom: 20 }}>
+          <h3>{m.titulo} em {ano}</h3>
+          <div className="formula">{m.formula}</div>
+          <span className="grande">{resumoAno}</span>
+        </div>
+        <div className="caixa">
+          {meses.map((t, i) => (
+            <div className="linha-caixa" key={t.mes} style={t.mes.slice(0, 7) === hoje.slice(0, 7) ? { background: 'var(--painel-2)' } : undefined}>
+              <span className="forte">{nomeMes(i)}</span>
+              <span className="fim">{m.valor(t)}</span>
+            </div>
+          ))}
+        </div>
+      </div>
     </>
   );
 }

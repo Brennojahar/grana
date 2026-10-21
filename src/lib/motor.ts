@@ -166,6 +166,9 @@ export interface TotaisMes {
   /** Entradas − custo de vida. */
   sobra: number;
   sobraPrevista: number;
+  /** Entradas − custo de vida − economias: o que sobrou livre no mês. */
+  performance: number;
+  performancePrevista: number;
   /** Economias ÷ entradas, de 0 a 1. */
   economizado: number;
   diasNoMes: number;
@@ -205,6 +208,8 @@ export function totaisMes(dados: Dados, mes: Dia, hoje: Dia): TotaisMes {
     custoDeVidaPrevisto: real(custoPrev),
     sobra: real(entradas - custo),
     sobraPrevista: real(entradas - custoPrev),
+    performance: real(entradas - custo - economias),
+    performancePrevista: real(entradas - custoPrev - economias),
     economizado: entradas > 0 ? economias / entradas : 0,
     diasNoMes: diasNoMes(y, m),
     diasDecorridos: decorridos,

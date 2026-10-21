@@ -7,7 +7,16 @@ export function numero(v: number): string {
 }
 
 export function moeda(v: number): string {
-  return `${v < 0 ? '−' : ''}R$ ${numero(Math.abs(v))}`;
+  return `${v < -0.004 ? '−' : ''}R$ ${numero(Math.abs(v))}`;
+}
+
+/** "5.92K", "11.01K", "1.20M": saldo compacto do horizonte (ponto decimal, como num painel). */
+export function compacto(v: number): string {
+  const a = Math.abs(v);
+  const sinal = v < -0.004 ? '-' : '';
+  if (a >= 1e6) return `${sinal}${(a / 1e6).toFixed(2)}M`;
+  if (a >= 1e3) return `${sinal}${(a / 1e3).toFixed(2)}K`;
+  return `${sinal}${Math.round(a)}`;
 }
 
 export function moedaCurta(v: number): string {
