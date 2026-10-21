@@ -1,11 +1,12 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type { Cartao, Dados, Dia, ItemPrevisao, Lancamento, Perfil, Recorrencia } from './tipos';
+import type { Cartao, Dados, Dia, ItemPrevisao, Lancamento, Perfil, Recorrencia, Tag } from './tipos';
 
 export interface Linhas {
   lancamentos: Lancamento;
   recorrencias: Recorrencia;
   previsao_itens: ItemPrevisao;
   cartoes: Cartao;
+  tags: Tag;
 }
 export type Tabela = keyof Linhas;
 
@@ -14,6 +15,7 @@ const CHAVE_DADOS: Record<Tabela, keyof Dados> = {
   recorrencias: 'recorrencias',
   previsao_itens: 'previsao',
   cartoes: 'cartoes',
+  tags: 'tags',
 };
 
 /** Onde os dados moram. Toda tela fala com esta interface, nunca direto com o Supabase. */
@@ -29,7 +31,18 @@ export interface Armazem {
 }
 
 export function vazio(): Dados {
-  return { perfil: { nome: '', divisor_dias: 30 }, lancamentos: [], recorrencias: [], previsao: [], cartoes: [], checkins: [] };
+  return { perfil: { nome: '', divisor_dias: 30 }, lancamentos: [], recorrencias: [], previsao: [], cartoes: [], checkins: [], tags: [] };
+}
+
+/** Completa dados salvos por versões antigas (sem tags). */
+function normalizar(d: Dados): Dados {
+  return {
+    ...vazio(),
+    ...d,
+    tags: d.tags ?? [],
+    lancamentos: (d.lancamentos ?? []).map((l) => ({ ...l, tag_ids: l.tag_ids ?? [] })),
+    recorrencias: (d.recorrencias ?? []).map((r) => ({ ...r, tag_ids: r.tag_ids ?? [] })),
+  };
 }
 
 /* ---------- local: navegador, sem login ---------- */
@@ -40,7 +53,7 @@ export function armazemLocal(): Armazem {
   let dados: Dados = vazio();
   try {
     const salvo = localStorage.getItem(CHAVE_LOCAL);
-    if (salvo) dados = { ...vazio(), ...JSON.parse(salvo) };
+    if (salvo) dados = normalizar(JSON.parse(salvo));
   } catch {
     /* sem armazenamento disponível: segue só em memória */
   }
@@ -69,6 +82,11 @@ export function armazemLocal(): Armazem {
       const fora = new Set(ids);
       (dados[k] as unknown) = (dados[k] as { id: string }[]).filter((l) => !fora.has(l.id));
       if (tabela === 'recorrencias') dados.lancamentos = dados.lancamentos.filter((l) => !l.recorrencia_id || !fora.has(l.recorrencia_id));
+      if (tabela === 'tags') {
+        const tira = (ids: string[]) => ids.filter((x) => !fora.has(x));
+        dados.lancamentos = dados.lancamentos.map((l) => ({ ...l, tag_ids: tira(l.tag_ids) }));
+        dados.recorrencias = dados.recorrencias.map((r) => ({ ...r, tag_ids: tira(r.tag_ids) }));
+      }
       persistir();
     },
     async salvarPerfil(perfil) {
@@ -80,7 +98,7 @@ export function armazemLocal(): Armazem {
       persistir();
     },
     async substituirTudo(novos) {
-      dados = structuredClone(novos);
+      dados = normalizar(structuredClone(novos));
       persistir();
     },
   };
@@ -89,14 +107,15 @@ export function armazemLocal(): Armazem {
 /* ---------- nuvem: Supabase com login ---------- */
 
 const CAMPOS: Record<Tabela, string> = {
-  lancamentos: 'id,data,tipo,valor,descricao,cartao_id,recorrencia_id,ocorrencia,pulado',
-  recorrencias: 'id,tipo,descricao,valor,frequencia,inicio,ocorrencias,fim,cartao_id',
+  lancamentos: 'id,data,tipo,valor,descricao,cartao_id,recorrencia_id,ocorrencia,pulado,tag_ids',
+  recorrencias: 'id,tipo,descricao,valor,frequencia,inicio,ocorrencias,fim,cartao_id,tag_ids',
   previsao_itens: 'id,descricao,valor',
   cartoes: 'id,nome,dia_fechamento,dia_vencimento',
+  tags: 'id,nome,cor,conta_saldo,conta_performance,conta_economizado,conta_custo_vida,conta_diario_medio',
 };
 
 /** Ordem de gravação respeitando as chaves estrangeiras. */
-const ORDEM: Tabela[] = ['cartoes', 'previsao_itens', 'recorrencias', 'lancamentos'];
+const ORDEM: Tabela[] = ['tags', 'cartoes', 'previsao_itens', 'recorrencias', 'lancamentos'];
 
 export function armazemNuvem(sb: SupabaseClient, userId: string): Armazem {
   const falhou = (erro: { message: string } | null) => {
@@ -107,15 +126,16 @@ export function armazemNuvem(sb: SupabaseClient, userId: string): Armazem {
   return {
     modo: 'nuvem',
     async carregar() {
-      const [perfil, lanc, rec, prev, cart, chk] = await Promise.all([
+      const [perfil, lanc, rec, prev, cart, chk, tags] = await Promise.all([
         sb.from('perfis').select('nome,divisor_dias').eq('user_id', userId).maybeSingle(),
         sb.from('lancamentos').select(CAMPOS.lancamentos).order('data').limit(20000),
         sb.from('recorrencias').select(CAMPOS.recorrencias).order('inicio'),
         sb.from('previsao_itens').select(CAMPOS.previsao_itens).order('criado_em'),
         sb.from('cartoes').select(CAMPOS.cartoes).order('nome'),
         sb.from('checkins').select('dia'),
+        sb.from('tags').select(CAMPOS.tags).order('nome'),
       ]);
-      for (const r of [perfil, lanc, rec, prev, cart, chk]) falhou(r.error);
+      for (const r of [perfil, lanc, rec, prev, cart, chk, tags]) falhou(r.error);
       return {
         perfil: (perfil.data as Perfil | null) ?? { nome: '', divisor_dias: 30 },
         lancamentos: ((lanc.data ?? []) as unknown as Lancamento[]).map(numero),
@@ -123,6 +143,7 @@ export function armazemNuvem(sb: SupabaseClient, userId: string): Armazem {
         previsao: ((prev.data ?? []) as unknown as ItemPrevisao[]).map(numero),
         cartoes: (cart.data ?? []) as unknown as Cartao[],
         checkins: ((chk.data ?? []) as { dia: string }[]).map((c) => c.dia),
+        tags: (tags.data ?? []) as unknown as Tag[],
       };
     },
     async salvar(tabela, linhas) {

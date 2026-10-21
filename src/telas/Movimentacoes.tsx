@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { BarraTitulo, mesCurto } from '../componentes/BarraTitulo';
 import { useFolhas } from '../componentes/Folhas';
+import { ChipsTags } from '../componentes/Tags';
 import { IconeChevronBaixo, IconeChevronDir, IconeChevronEsq, IconeFiltro, TipoIcone } from '../componentes/Icones';
 import { diaDaSemana, fimDoMes, inicioDoMes, rotuloDia, somarMeses } from '../lib/datas';
 import { useGrana } from '../lib/estado';
@@ -79,6 +80,7 @@ export function Movimentacoes() {
                       {rotulo(mv.tipo).nome}
                       {mv.recorrencia_id ? ` · repete${mv.total ? ` · ${mv.posicao}/${mv.total}` : ''}` : ''}
                     </small>
+                    <ChipsTags ids={mv.tag_ids} pequeno />
                   </span>
                   <span className="fim">{moeda(mv.valor)}</span>
                 </button>

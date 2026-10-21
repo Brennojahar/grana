@@ -15,6 +15,7 @@ export interface Campos {
   valor: number;
   descricao: string;
   cartao_id: string | null;
+  tag_ids: string[];
 }
 
 export interface Repeticao {
@@ -44,6 +45,7 @@ export function criar(campos: Campos, repetir: Repeticao | null): Mudanca {
     ocorrencias: vezes,
     fim: null,
     cartao_id: campos.cartao_id,
+    tag_ids: campos.tag_ids,
   };
   return { salvar: { recorrencias: [r] }, apagar: {} };
 }
@@ -81,6 +83,7 @@ export function editar(dados: Dados, mov: Movimento, campos: Campos, escopo: Esc
       valor: campos.valor,
       descricao: campos.descricao,
       cartao_id: campos.cartao_id,
+      tag_ids: campos.tag_ids,
       inicio: somarDias(rec.inicio, deslocamento),
     };
     return { salvar: { recorrencias: [r] }, apagar: {} };
@@ -95,6 +98,7 @@ export function editar(dados: Dados, mov: Movimento, campos: Campos, escopo: Esc
     valor: campos.valor,
     descricao: campos.descricao,
     cartao_id: campos.cartao_id,
+    tag_ids: campos.tag_ids,
     inicio: campos.data,
     ocorrencias: rec.ocorrencias ? Math.max(1, rec.ocorrencias - jaPassaram) : null,
   };
@@ -122,6 +126,7 @@ export function apagar(dados: Dados, mov: Movimento, escopo: Escopo): Mudanca {
       recorrencia_id: rec.id,
       ocorrencia: mov.ocorrencia,
       pulado: true,
+      tag_ids: mov.tag_ids,
     };
     return { salvar: { lancamentos: [l] }, apagar: {} };
   }
@@ -139,7 +144,7 @@ export function apagar(dados: Dados, mov: Movimento, escopo: Escopo): Mudanca {
 /** Aplica uma mudança nos dados em memória (o armazém recebe a mesma mudança em paralelo). */
 export function aplicar(dados: Dados, m: Mudanca): Dados {
   const out: Dados = { ...dados };
-  const chave = { lancamentos: 'lancamentos', recorrencias: 'recorrencias', previsao_itens: 'previsao', cartoes: 'cartoes' } as const;
+  const chave = { lancamentos: 'lancamentos', recorrencias: 'recorrencias', previsao_itens: 'previsao', cartoes: 'cartoes', tags: 'tags' } as const;
   for (const t of Object.keys(chave) as Tabela[]) {
     const k = chave[t];
     let lista = out[k] as { id: string }[];
@@ -147,6 +152,12 @@ export function aplicar(dados: Dados, m: Mudanca): Dados {
     if (fora.size) {
       lista = lista.filter((l) => !fora.has(l.id));
       if (t === 'recorrencias') out.lancamentos = out.lancamentos.filter((l) => !l.recorrencia_id || !fora.has(l.recorrencia_id));
+      if (t === 'tags') {
+        // Apagar a tag só tira a etiqueta das movimentações (o banco faz o mesmo por gatilho).
+        const tira = (ids: string[]) => ids.filter((x) => !fora.has(x));
+        out.lancamentos = out.lancamentos.map((l) => ({ ...l, tag_ids: tira(l.tag_ids) }));
+        out.recorrencias = out.recorrencias.map((r) => ({ ...r, tag_ids: tira(r.tag_ids) }));
+      }
     }
     const novos = (m.salvar[t] ?? []) as { id: string }[];
     if (novos.length) {

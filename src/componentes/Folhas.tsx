@@ -6,14 +6,15 @@ import { movimentos, resumoDiario } from '../lib/motor';
 import { rotulo, TIPOS } from '../lib/rotulos';
 import type { Dia, Movimento, Tipo } from '../lib/tipos';
 import { FormLancamento } from './FormLancamento';
+import { ChipsTags } from './Tags';
 import { IconeChevronBaixo, IconeChevronDir, IconeChevronEsq, IconeFechar, IconeFiltro, IconeMais, IconeVoltar, PrevisaoIcone, TipoIcone } from './Icones';
 
-type Aberta = { qual: 'novo'; data: Dia; tipo?: Tipo } | { qual: 'editar'; mov: Movimento } | null;
+type Aberta = { qual: 'novo'; data: Dia; tipo?: Tipo; tagIds?: string[] } | { qual: 'editar'; mov: Movimento } | null;
 
 interface Folhas {
   /** Abre o menu "adicionar" perto do elemento (no celular, sobe de baixo). */
-  abrirAdicionar(ancora?: HTMLElement | null, data?: Dia): void;
-  lancar(data?: Dia, tipo?: Tipo): void;
+  abrirAdicionar(ancora?: HTMLElement | null, data?: Dia, tagIds?: string[]): void;
+  lancar(data?: Dia, tipo?: Tipo, tagIds?: string[]): void;
   editarMov(mov: Movimento): void;
   verDia(dia: Dia, filtro?: Tipo | null): void;
 }
@@ -31,16 +32,16 @@ export const nomeTipo = (t: Tipo) => rotulo(t).nome;
 export function ProvedorFolhas({ children }: { children: ReactNode }) {
   const { hoje } = useGrana();
   const [aberta, setAberta] = useState<Aberta>(null);
-  const [menu, setMenu] = useState<{ x: number; y: number; data?: Dia } | null>(null);
+  const [menu, setMenu] = useState<{ x: number; y: number; data?: Dia; tagIds?: string[] } | null>(null);
   const [gaveta, setGaveta] = useState<{ dia: Dia; filtro: Tipo | null } | null>(null);
 
   const api = useMemo<Folhas>(
     () => ({
-      abrirAdicionar: (ancora, data) => {
+      abrirAdicionar: (ancora, data, tagIds) => {
         const r = ancora?.getBoundingClientRect();
-        setMenu({ x: r ? r.right + 8 : 0, y: r ? Math.min(r.top, window.innerHeight - 420) : 0, data });
+        setMenu({ x: r ? r.right + 8 : 0, y: r ? Math.min(r.top, window.innerHeight - 420) : 0, data, tagIds });
       },
-      lancar: (data, tipo) => setAberta({ qual: 'novo', data: data ?? hoje, tipo }),
+      lancar: (data, tipo, tagIds) => setAberta({ qual: 'novo', data: data ?? hoje, tipo, tagIds }),
       editarMov: (mov) => setAberta({ qual: 'editar', mov }),
       verDia: (dia, filtro = null) => setGaveta({ dia, filtro }),
     }),
@@ -61,7 +62,7 @@ export function ProvedorFolhas({ children }: { children: ReactNode }) {
                 role="menuitem"
                 onClick={() => {
                   setMenu(null);
-                  setAberta({ qual: 'novo', data: menu.data ?? hoje, tipo: t.tipo });
+                  setAberta({ qual: 'novo', data: menu.data ?? hoje, tipo: t.tipo, tagIds: menu.tagIds });
                 }}
               >
                 <span className="nome">
@@ -84,7 +85,7 @@ export function ProvedorFolhas({ children }: { children: ReactNode }) {
           onAdicionar={(el) => api.abrirAdicionar(el, gaveta.dia)}
         />
       )}
-      {aberta?.qual === 'novo' && <FormLancamento novo={{ data: aberta.data, tipo: aberta.tipo }} onFechar={() => setAberta(null)} />}
+      {aberta?.qual === 'novo' && <FormLancamento novo={{ data: aberta.data, tipo: aberta.tipo, tagIds: aberta.tagIds }} onFechar={() => setAberta(null)} />}
       {aberta?.qual === 'editar' && <FormLancamento mov={aberta.mov} onFechar={() => setAberta(null)} />}
     </Contexto.Provider>
   );
@@ -169,6 +170,7 @@ function GavetaDia({ dia, filtro, onMudar, onFechar, onEditar, onAdicionar }: Pr
                   {rotulo(mv.tipo).nome}
                   {mv.recorrencia_id ? ` · repete${mv.total ? ` · ${mv.posicao}/${mv.total}` : ''}` : ''}
                 </small>
+                <ChipsTags ids={mv.tag_ids} pequeno />
               </span>
               <span className="valor">{moeda(mv.valor)}</span>
             </button>

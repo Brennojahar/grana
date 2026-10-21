@@ -1,4 +1,4 @@
-import type { Tipo } from './tipos';
+import type { ContasTag, CorTag, Tipo } from './tipos';
 
 export interface RotuloTipo {
   tipo: Tipo;
@@ -28,3 +28,24 @@ export const COR_TIPO: Record<Tipo, string> = {
   economia: 'var(--economia)',
   cartao: 'var(--cartao)',
 };
+
+
+export const CORES_TAG: { cor: CorTag; nome: string }[] = [
+  { cor: 'cinza', nome: 'cinza' },
+  { cor: 'amarelo', nome: 'amarelo' },
+  { cor: 'vermelho', nome: 'vermelho' },
+  { cor: 'rosa', nome: 'rosa' },
+  { cor: 'azul', nome: 'azul' },
+  { cor: 'roxo', nome: 'roxo' },
+  { cor: 'verde', nome: 'verde' },
+  { cor: 'marrom', nome: 'marrom' },
+];
+
+/** Os cálculos que uma tag pode deixar de fora, na ordem em que aparecem. */
+export const CONTAS_TAG: { conta: keyof ContasTag; nome: string }[] = [
+  { conta: 'conta_saldo', nome: 'saldos' },
+  { conta: 'conta_performance', nome: 'performance' },
+  { conta: 'conta_economizado', nome: 'economizado' },
+  { conta: 'conta_custo_vida', nome: 'custo de vida' },
+  { conta: 'conta_diario_medio', nome: 'diário médio' },
+];

@@ -117,7 +117,7 @@ export function ProvedorGrana({ children }: { children: ReactNode }) {
       comArmazem(
         (d) => aplicar(d, m),
         async (a) => {
-          const ordem: Tabela[] = ['cartoes', 'previsao_itens', 'recorrencias', 'lancamentos'];
+          const ordem: Tabela[] = ['tags', 'cartoes', 'previsao_itens', 'recorrencias', 'lancamentos'];
           for (const t of ordem) {
             const linhas = m.salvar[t];
             if (linhas?.length) await a.salvar(t, linhas as Linhas[typeof t][]);

@@ -1,13 +1,14 @@
 import { useState } from 'react';
 import { BrowserRouter, Link, NavLink, Navigate, Outlet, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { ProvedorFolhas, useFolhas } from './componentes/Folhas';
-import { IconeAdicionar, IconeHoje, IconeHorizonte, IconeMenu, IconeRecolher, IconeSaldos, IconeTotais } from './componentes/Icones';
+import { IconeAdicionar, IconeHoje, IconeHorizonte, IconeMenu, IconeRecolher, IconeSaldos, IconeTags, IconeTotais } from './componentes/Icones';
 import { partes } from './lib/datas';
 import { ProvedorGrana, useGrana } from './lib/estado';
 import { Entrar } from './telas/Entrar';
 import { Horizonte } from './telas/Horizonte';
 import { Ajuda, Cartoes, Configuracoes, Menu, Perfil, PrevisaoDiario, Repeticoes } from './telas/Menu';
 import { Movimentacoes } from './telas/Movimentacoes';
+import { TagDetalhe, Tags } from './telas/Tags';
 import { EVENTO_IR_PRA_HOJE, Saldos } from './telas/Saldos';
 import { Totais, TotaisMetrica } from './telas/Totais';
 
@@ -33,6 +34,8 @@ function Portao() {
           <Route path="totais" element={<Totais />} />
           <Route path="totais/:metrica" element={<TotaisMetrica />} />
           <Route path="movimentacoes" element={<Movimentacoes />} />
+          <Route path="tags" element={<Tags />} />
+          <Route path="tags/:id" element={<TagDetalhe />} />
           <Route path="menu" element={<Menu />} />
           <Route path="menu/perfil" element={<Perfil />} />
           <Route path="menu/previsao-diario" element={<PrevisaoDiario />} />
@@ -95,6 +98,10 @@ function Casca() {
           <IconeTotais />
           <span>totais</span>
         </NavLink>
+        <NavLink to="/tags" className="item-nav">
+          <IconeTags />
+          <span>tags</span>
+        </NavLink>
         <NavLink to="/menu" className="item-nav" aria-current={menuAtivo ? 'page' : undefined}>
           <IconeMenu />
           <span>menu</span>
@@ -146,9 +153,9 @@ function Casca() {
             <path d="M10 4v12M4 10h12" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" />
           </svg>
         </button>
-        <NavLink to="/horizonte">
-          <IconeHorizonte />
-          horizonte
+        <NavLink to="/tags">
+          <IconeTags />
+          tags
         </NavLink>
         <NavLink to="/menu" aria-current={menuAtivo ? 'page' : undefined}>
           <IconeMenu />

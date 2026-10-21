@@ -17,6 +17,7 @@ export interface Lancamento {
   ocorrencia: Dia | null;
   /** Ocorrência apagada: some do cálculo, mas fica registrada para não voltar. */
   pulado: boolean;
+  tag_ids: string[];
 }
 
 export interface Recorrencia {
@@ -31,6 +32,24 @@ export interface Recorrencia {
   /** Último dia em que ainda vale (usado ao encerrar "desta em diante"). */
   fim: Dia | null;
   cartao_id: string | null;
+  tag_ids: string[];
+}
+
+export type CorTag = 'cinza' | 'amarelo' | 'vermelho' | 'rosa' | 'azul' | 'roxo' | 'verde' | 'marrom';
+
+/** Em quais cálculos as movimentações com a tag entram (false = fica de fora). */
+export interface ContasTag {
+  conta_saldo: boolean;
+  conta_performance: boolean;
+  conta_economizado: boolean;
+  conta_custo_vida: boolean;
+  conta_diario_medio: boolean;
+}
+
+export interface Tag extends ContasTag {
+  id: string;
+  nome: string;
+  cor: CorTag;
 }
 
 export interface ItemPrevisao {
@@ -65,6 +84,7 @@ export interface Movimento {
   /** Posição na série (1 = primeira), quando vem de recorrência. */
   posicao: number | null;
   total: number | null;
+  tag_ids: string[];
 }
 
 export interface ResumoDia {
@@ -86,4 +106,5 @@ export interface Dados {
   previsao: ItemPrevisao[];
   cartoes: Cartao[];
   checkins: Dia[];
+  tags: Tag[];
 }

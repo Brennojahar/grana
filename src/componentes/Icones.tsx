@@ -69,6 +69,20 @@ export const IconeTotais = () => (
   </Svg>
 );
 
+export const IconeTags = () => (
+  <Svg>
+    <path d="M3 5.5v4.2a1.5 1.5 0 0 0 .44 1.06l5.8 5.8a1.5 1.5 0 0 0 2.12 0l4.2-4.2a1.5 1.5 0 0 0 0-2.12l-5.8-5.8A1.5 1.5 0 0 0 8.7 4H4.5A1.5 1.5 0 0 0 3 5.5z" {...traco} />
+    <circle cx="6.8" cy="7.8" r="1.2" fill="currentColor" />
+  </Svg>
+);
+
+export const IconeBusca = () => (
+  <Svg>
+    <circle cx="8.5" cy="8.5" r="5.5" {...traco} />
+    <path d="M12.8 12.8 17 17" {...traco} />
+  </Svg>
+);
+
 export const IconeMenu = () => (
   <Svg>
     <path d="M3.5 5h13M3.5 10h13M3.5 15h13" {...traco} />

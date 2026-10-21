@@ -1,5 +1,5 @@
 import { cadaDia, diasNoMes, dia, fimDoMes, inicioDoMes, partes, somarDias, somarMeses } from './datas';
-import type { Dados, Dia, Movimento, Recorrencia, ResumoDia, Tipo } from './tipos';
+import type { ContasTag, Dados, Dia, Movimento, Recorrencia, ResumoDia, Tag, Tipo } from './tipos';
 
 /** Tudo é somado em centavos inteiros para o saldo não acumular erro de ponto flutuante. */
 const cent = (v: number) => Math.round(v * 100);
@@ -73,6 +73,7 @@ export function movimentos(dados: Dados, de: Dia, ate: Dia): Movimento[] {
         ocorrencia: d,
         posicao: i + 1,
         total,
+        tag_ids: r.tag_ids,
       });
     });
   }
@@ -92,11 +93,19 @@ export function movimentos(dados: Dados, de: Dia, ate: Dia): Movimento[] {
       ocorrencia: l.ocorrencia,
       posicao: pos?.posicao ?? null,
       total: pos?.total ?? null,
+      tag_ids: l.tag_ids,
     });
   }
 
   return out.sort((a, b) => (a.data === b.data ? a.descricao.localeCompare(b.descricao) : a.data < b.data ? -1 : 1));
 }
+
+/** A movimentação entra no cálculo `conta` se nenhuma das tags dela estiver marcada para ficar de fora. */
+export function contaEm(m: Pick<Movimento, 'tag_ids'>, conta: keyof ContasTag, tagsPorId: Map<string, Tag>): boolean {
+  return m.tag_ids.every((id) => tagsPorId.get(id)?.[conta] ?? true);
+}
+
+const mapaTags = (dados: Dados) => new Map(dados.tags.map((t) => [t.id, t]));
 
 export function primeiroDia(dados: Dados): Dia | null {
   let min: Dia | null = null;
@@ -108,6 +117,7 @@ export function primeiroDia(dados: Dados): Dia | null {
 /**
  * Saldo de cada dia em [de, ate]. O saldo é o acumulado desde o primeiro lançamento.
  * Nos dias depois de `hoje` sem nenhum diário lançado, entra a previsão diária.
+ * As colunas mostram todas as movimentações; o saldo pula as de tags marcadas para ficar de fora dele.
  */
 export function resumoDiario(dados: Dados, de: Dia, ate: Dia, hoje: Dia): ResumoDia[] {
   const inicio = primeiroDia(dados);
@@ -121,6 +131,7 @@ export function resumoDiario(dados: Dados, de: Dia, ate: Dia, hoje: Dia): Resumo
     else porDia.set(m.data, [m]);
   }
 
+  const tagsPorId = mapaTags(dados);
   const out: ResumoDia[] = [];
   let saldo = 0;
   for (const d of cadaDia(comeco, ate)) {
@@ -129,10 +140,13 @@ export function resumoDiario(dados: Dados, de: Dia, ate: Dia, hoje: Dia): Resumo
     for (const m of porDia.get(d) ?? []) {
       t[m.tipo] += cent(m.valor);
       if (m.tipo === 'diario') temDiario = true;
+      if (contaEm(m, 'conta_saldo', tagsPorId)) saldo += SINAL[m.tipo] * cent(m.valor);
     }
     const diarioPrevisto = d > hoje && !temDiario && prev > 0;
-    if (diarioPrevisto) t.diario += prev;
-    for (const tipo of Object.keys(t) as Tipo[]) saldo += SINAL[tipo] * t[tipo];
+    if (diarioPrevisto) {
+      t.diario += prev;
+      saldo -= prev;
+    }
     if (d < de) continue;
     out.push({
       dia: d,
@@ -183,40 +197,70 @@ export function totaisMes(dados: Dados, mes: Dia, hoje: Dia): TotaisMes {
   const de = inicioDoMes(mes);
   const ate = fimDoMes(mes);
   const dias = resumoDiario(dados, de, ate, hoje);
+  const movs = movimentos(dados, de, ate);
+  const tagsPorId = mapaTags(dados);
   const prev = previsaoDiaria(dados);
-  let entradas = 0, saidas = 0, diarios = 0, economias = 0, cartao = 0, diasPrevistos = 0, decorridos = 0;
-  for (const r of dias) {
-    entradas += cent(r.entradas);
-    saidas += cent(r.saidas);
-    economias += cent(r.economias);
-    cartao += cent(r.cartao);
-    if (r.diarioPrevisto) diasPrevistos++;
-    else diarios += cent(r.diarios);
-    if (r.dia <= hoje) decorridos++;
-  }
-  const custo = saidas + diarios + cartao;
-  const custoPrev = custo + diasPrevistos * cent(prev);
+  const diasPrevistos = dias.filter((r) => r.diarioPrevisto).length;
+  const decorridos = dias.filter((r) => r.dia <= hoje).length;
+  const previsto = diasPrevistos * cent(prev);
+
+  // Cada cálculo soma só o que as tags deixam entrar nele; as somas sem `conta` são as movimentações do mês.
+  const soma = (tipos: Tipo[], conta?: keyof ContasTag) =>
+    movs.reduce((s, m) => (tipos.includes(m.tipo) && (!conta || contaEm(m, conta, tagsPorId)) ? s + cent(m.valor) : s), 0);
+
+  const entradas = soma(['entrada']);
+  const custo = soma(['saida', 'diario', 'cartao'], 'conta_custo_vida');
+  const performance = soma(['entrada'], 'conta_performance') - soma(['saida', 'diario', 'cartao', 'economia'], 'conta_performance');
+  const entradasEconomizado = soma(['entrada'], 'conta_economizado');
   const [y, m] = partes(de);
   return {
     mes: de,
     entradas: real(entradas),
-    saidas: real(saidas),
-    diarios: real(diarios),
-    economias: real(economias),
-    cartao: real(cartao),
+    saidas: real(soma(['saida'])),
+    diarios: real(soma(['diario'])),
+    economias: real(soma(['economia'])),
+    cartao: real(soma(['cartao'])),
     custoDeVida: real(custo),
-    custoDeVidaPrevisto: real(custoPrev),
+    custoDeVidaPrevisto: real(custo + previsto),
     sobra: real(entradas - custo),
-    sobraPrevista: real(entradas - custoPrev),
-    performance: real(entradas - custo - economias),
-    performancePrevista: real(entradas - custoPrev - economias),
-    economizado: entradas > 0 ? economias / entradas : 0,
+    sobraPrevista: real(entradas - custo - previsto),
+    performance: real(performance),
+    performancePrevista: real(performance - previsto),
+    economizado: entradasEconomizado > 0 ? soma(['economia'], 'conta_economizado') / entradasEconomizado : 0,
     diasNoMes: diasNoMes(y, m),
     diasDecorridos: decorridos,
-    diarioMedio: decorridos > 0 ? real(Math.round(diarios / decorridos)) : 0,
+    diarioMedio: decorridos > 0 ? real(Math.round(soma(['diario'], 'conta_diario_medio') / decorridos)) : 0,
     previsaoDiaria: prev,
     saldoFinal: dias.at(-1)?.saldo ?? 0,
   };
+}
+
+export interface TotaisTag {
+  entradas: number;
+  saidas: number;
+  diarios: number;
+  economias: number;
+  cartao: number;
+  /** Saídas + diários + cartão + economias: o que saiu com essa tag. */
+  gastos: number;
+  movimentos: Movimento[];
+}
+
+/** O que cada tag movimentou num intervalo (uma movimentação com duas tags conta nas duas). */
+export function totaisPorTag(dados: Dados, de: Dia, ate: Dia): Map<string, TotaisTag> {
+  const out = new Map<string, TotaisTag>();
+  for (const t of dados.tags) out.set(t.id, { entradas: 0, saidas: 0, diarios: 0, economias: 0, cartao: 0, gastos: 0, movimentos: [] });
+  const campo = { entrada: 'entradas', saida: 'saidas', diario: 'diarios', economia: 'economias', cartao: 'cartao' } as const;
+  for (const m of movimentos(dados, de, ate)) {
+    for (const id of m.tag_ids) {
+      const t = out.get(id);
+      if (!t) continue;
+      t[campo[m.tipo]] = real(cent(t[campo[m.tipo]]) + cent(m.valor));
+      if (m.tipo !== 'entrada') t.gastos = real(cent(t.gastos) + cent(m.valor));
+      t.movimentos.push(m);
+    }
+  }
+  return out;
 }
 
 export function totaisAno(dados: Dados, ano: number, hoje: Dia): TotaisMes[] {

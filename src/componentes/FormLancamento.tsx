@@ -12,9 +12,12 @@ import {
   IconeDinheiro,
   IconeFechar,
   IconeLapis,
+  IconeMais,
   IconeRepetir,
+  IconeTags,
   TipoIcone,
 } from './Icones';
+import { ChipsTags, ChipTag, ModalTag } from './Tags';
 
 const FREQUENCIAS: { f: Frequencia | ''; nome: string }[] = [
   { f: '', nome: 'não repete' },
@@ -30,7 +33,7 @@ const ESCOPOS: { e: Escopo; nome: string }[] = [
   { e: 'todas', nome: 'todas' },
 ];
 
-type Props = { onFechar(): void } & ({ novo: { data: Dia; tipo?: Tipo } } | { mov: Movimento });
+type Props = { onFechar(): void } & ({ novo: { data: Dia; tipo?: Tipo; tagIds?: string[] } } | { mov: Movimento });
 
 function dataCurta(d: Dia): string {
   const [y, m, dd] = partes(d);
@@ -55,6 +58,9 @@ export function FormLancamento(props: Props) {
   const [semFim, setSemFim] = useState(true);
   const [dividir, setDividir] = useState(false);
   const [escopo, setEscopo] = useState<Escopo>('esta');
+  const [tagIds, setTagIds] = useState<string[]>(mov?.tag_ids ?? ('novo' in props ? props.novo.tagIds : undefined) ?? []);
+  const [tagsAbertas, setTagsAbertas] = useState(false);
+  const [criandoTag, setCriandoTag] = useState(false);
   const [confirmarApagar, setConfirmarApagar] = useState(false);
   const [erro, setErro] = useState('');
   const campoValor = useRef<HTMLInputElement>(null);
@@ -63,7 +69,8 @@ export function FormLancamento(props: Props) {
     campoValor.current?.focus({ preventScroll: true });
     const corpo = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
-    const tecla = (e: KeyboardEvent) => e.key === 'Escape' && fechar.current();
+    // Com a janela de nova tag aberta por cima, o Esc fecha só ela.
+    const tecla = (e: KeyboardEvent) => e.key === 'Escape' && document.querySelectorAll('.fundo-modal').length === 1 && fechar.current();
     window.addEventListener('keydown', tecla);
     return () => {
       document.body.style.overflow = corpo;
@@ -79,7 +86,14 @@ export function FormLancamento(props: Props) {
     if (!Number.isFinite(numeroValor) || numeroValor < 0) return setErro('Digite um valor.');
     if (!data) return setErro('Escolha a data.');
     if (freq && !semFim && !(parseInt(vezes, 10) >= 2)) return setErro('Quantas vezes? Pelo menos 2.');
-    const campos = { data, tipo, valor: numeroValor, descricao: descricao.trim(), cartao_id: tipo === 'cartao' ? cartao || null : null };
+    const campos = {
+      data,
+      tipo,
+      valor: numeroValor,
+      descricao: descricao.trim(),
+      cartao_id: tipo === 'cartao' ? cartao || null : null,
+      tag_ids: tagIds.filter((id) => dados.tags.some((t) => t.id === id)),
+    };
     const m = mov ? editar(dados, mov, campos, escopo) : criar(campos, freq ? { frequencia: freq, vezes: nVezes, dividir: dividir && !!nVezes } : null);
     mudar(m);
     props.onFechar();
@@ -184,6 +198,33 @@ export function FormLancamento(props: Props) {
             </label>
           )}
 
+          <button type="button" className="linha-form" style={{ width: '100%', textAlign: 'left' }} onClick={() => setTagsAbertas((v) => !v)} aria-expanded={tagsAbertas}>
+            <IconeTags />
+            {tagIds.length ? <ChipsTags ids={tagIds} pequeno /> : <span>tags</span>}
+            <span className="direita" />
+            <span style={{ transform: tagsAbertas ? 'rotate(180deg)' : undefined, transition: 'transform 160ms', display: 'grid' }}>
+              <IconeChevronBaixo />
+            </span>
+          </button>
+          {tagsAbertas && (
+            <div className="lista-tags-form">
+              {dados.tags.map((t) => (
+                <label key={t.id} className="marcador" style={{ borderBottom: 0 }}>
+                  <input
+                    type="checkbox"
+                    checked={tagIds.includes(t.id)}
+                    onChange={(e) => setTagIds((ids) => (e.target.checked ? [...ids, t.id] : ids.filter((x) => x !== t.id)))}
+                  />
+                  <ChipTag tag={t} />
+                </label>
+              ))}
+              {dados.tags.length === 0 && <p className="meta" style={{ margin: '6px 0' }}>nenhuma tag ainda.</p>}
+              <button type="button" className="botao-texto" style={{ display: 'flex', alignItems: 'center', gap: 6, minHeight: 40 }} onClick={() => setCriandoTag(true)}>
+                <IconeMais /> nova tag
+              </button>
+            </div>
+          )}
+
           {freq && !mov && (
             <>
               <label className="marcador">
@@ -252,6 +293,7 @@ export function FormLancamento(props: Props) {
           )}
         </div>
       </form>
+      {criandoTag && <ModalTag tag={null} onFechar={() => setCriandoTag(false)} onCriada={(t) => setTagIds((ids) => [...ids, t.id])} />}
     </div>
   );
 }

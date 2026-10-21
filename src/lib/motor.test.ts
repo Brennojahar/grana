@@ -3,14 +3,14 @@ import { describe, expect, it } from 'vitest';
 import { somarMeses } from './datas';
 import { lerValor } from './formato';
 import { paraDados } from './importar';
-import { horizonte, movimentos, previsaoDiaria, resumoDiario, totaisAno, totaisMes } from './motor';
+import { horizonte, movimentos, previsaoDiaria, resumoDiario, totaisAno, totaisMes, totaisPorTag } from './motor';
 import type { Dados } from './tipos';
 
 let n = 0;
 const id = () => `id${++n}`;
 
 function base(): Dados {
-  return { perfil: { nome: '', divisor_dias: 30 }, lancamentos: [], recorrencias: [], previsao: [], cartoes: [], checkins: [] };
+  return { perfil: { nome: '', divisor_dias: 30 }, lancamentos: [], recorrencias: [], previsao: [], cartoes: [], checkins: [], tags: [] };
 }
 
 describe('datas', () => {
@@ -26,8 +26,8 @@ describe('motor', () => {
     const d = base();
     d.previsao = [{ id: id(), descricao: 'comida', valor: 300 }];
     d.lancamentos = [
-      { id: id(), data: '2026-01-01', tipo: 'entrada', valor: 1000, descricao: 'x', cartao_id: null, recorrencia_id: null, ocorrencia: null, pulado: false },
-      { id: id(), data: '2026-01-03', tipo: 'diario', valor: 25, descricao: 'pão', cartao_id: null, recorrencia_id: null, ocorrencia: null, pulado: false },
+      { id: id(), data: '2026-01-01', tipo: 'entrada', valor: 1000, descricao: 'x', cartao_id: null, recorrencia_id: null, ocorrencia: null, pulado: false, tag_ids: [] },
+      { id: id(), data: '2026-01-03', tipo: 'diario', valor: 25, descricao: 'pão', cartao_id: null, recorrencia_id: null, ocorrencia: null, pulado: false, tag_ids: [] },
     ];
     const r = resumoDiario(d, '2026-01-01', '2026-01-04', '2026-01-01');
     expect(r.map((x) => x.saldo)).toEqual([1000, 990, 965, 955]);
@@ -36,11 +36,11 @@ describe('motor', () => {
 
   it('ocorrência substituída e ocorrência pulada', () => {
     const d = base();
-    const rec = { id: 'r', tipo: 'saida' as const, descricao: 'aluguel', valor: 100, frequencia: 'mensal' as const, inicio: '2026-01-10', ocorrencias: null, fim: null, cartao_id: null };
+    const rec = { id: 'r', tipo: 'saida' as const, descricao: 'aluguel', valor: 100, frequencia: 'mensal' as const, inicio: '2026-01-10', ocorrencias: null, fim: null, cartao_id: null, tag_ids: [] };
     d.recorrencias = [rec];
     d.lancamentos = [
-      { id: 'a', data: '2026-02-12', tipo: 'saida', valor: 150, descricao: 'aluguel', cartao_id: null, recorrencia_id: 'r', ocorrencia: '2026-02-10', pulado: false },
-      { id: 'b', data: '2026-03-10', tipo: 'saida', valor: 100, descricao: 'aluguel', cartao_id: null, recorrencia_id: 'r', ocorrencia: '2026-03-10', pulado: true },
+      { id: 'a', data: '2026-02-12', tipo: 'saida', valor: 150, descricao: 'aluguel', cartao_id: null, recorrencia_id: 'r', ocorrencia: '2026-02-10', pulado: false, tag_ids: [] },
+      { id: 'b', data: '2026-03-10', tipo: 'saida', valor: 100, descricao: 'aluguel', cartao_id: null, recorrencia_id: 'r', ocorrencia: '2026-03-10', pulado: true, tag_ids: [] },
     ];
     const m = movimentos(d, '2026-01-01', '2026-04-30');
     expect(m.map((x) => [x.data, x.valor, x.posicao])).toEqual([
@@ -54,6 +54,7 @@ describe('motor', () => {
     const d = base();
     const l = (data: string, tipo: 'entrada' | 'saida' | 'economia' | 'cartao', valor: number) => ({
       id: id(), data, tipo, valor, descricao: '', cartao_id: null, recorrencia_id: null, ocorrencia: null, pulado: false,
+      tag_ids: [],
     });
     d.lancamentos = [l('2026-03-01', 'entrada', 1000), l('2026-03-02', 'saida', 300), l('2026-03-03', 'economia', 200), l('2026-03-04', 'cartao', 100)];
     const t = totaisMes(d, '2026-03-01', '2026-03-31');
@@ -63,9 +64,29 @@ describe('motor', () => {
     expect(t.economizado).toBeCloseTo(0.2);
   });
 
+  it('tag fora do saldo e fora do custo de vida', () => {
+    const d = base();
+    const viagem = { id: 'viagem', nome: 'viagem', cor: 'azul' as const, conta_saldo: false, conta_performance: true, conta_economizado: true, conta_custo_vida: false, conta_diario_medio: true };
+    d.tags = [viagem];
+    const l = (data: string, tipo: 'entrada' | 'saida', valor: number, tag_ids: string[] = []) => ({
+      id: id(), data, tipo, valor, descricao: '', cartao_id: null, recorrencia_id: null, ocorrencia: null, pulado: false, tag_ids,
+    });
+    d.lancamentos = [l('2026-05-01', 'entrada', 1000), l('2026-05-02', 'saida', 300, ['viagem']), l('2026-05-03', 'saida', 100)];
+    const r = resumoDiario(d, '2026-05-01', '2026-05-03', '2026-05-31');
+    expect(r.map((x) => x.saidas)).toEqual([0, 300, 100]); // a coluna mostra tudo
+    expect(r.map((x) => x.saldo)).toEqual([1000, 1000, 900]); // o saldo pula a viagem
+    const t = totaisMes(d, '2026-05-01', '2026-05-31');
+    expect(t.saidas).toBe(400);
+    expect(t.custoDeVida).toBe(100);
+    expect(t.performance).toBe(600); // performance continua contando a viagem
+    const porTag = totaisPorTag(d, '2026-05-01', '2026-05-31').get('viagem')!;
+    expect(porTag.gastos).toBe(300);
+    expect(porTag.movimentos).toHaveLength(1);
+  });
+
   it('série com fim para no dia do fim', () => {
     const d = base();
-    d.recorrencias = [{ id: 'r', tipo: 'entrada', descricao: 'x', valor: 1, frequencia: 'semanal', inicio: '2026-01-01', ocorrencias: null, fim: '2026-01-20', cartao_id: null }];
+    d.recorrencias = [{ id: 'r', tipo: 'entrada', descricao: 'x', valor: 1, frequencia: 'semanal', inicio: '2026-01-01', ocorrencias: null, fim: '2026-01-20', cartao_id: null, tag_ids: [] }];
     expect(movimentos(d, '2026-01-01', '2026-12-31').map((x) => x.data)).toEqual(['2026-01-01', '2026-01-08', '2026-01-15']);
   });
 });

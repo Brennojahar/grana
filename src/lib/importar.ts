@@ -38,6 +38,7 @@ export function paraDados(arq: ArquivoExportado, nome = '', novoId: () => string
       recorrencia_id: null,
       ocorrencia: null,
       pulado: false,
+      tag_ids: [],
     })),
     recorrencias: arq.recorrencias.map((r) => ({
       id: novoId(),
@@ -49,7 +50,9 @@ export function paraDados(arq: ArquivoExportado, nome = '', novoId: () => string
       ocorrencias: r.ocorrencias,
       fim: null,
       cartao_id: null,
+      tag_ids: [],
     })),
     checkins: [],
+    tags: [],
   };
 }

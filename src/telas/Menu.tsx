@@ -596,6 +596,12 @@ export function Ajuda() {
           <b>Custo de vida</b> = saídas + diários + cartão (mais a previsão nos dias que faltam). <b>Performance</b> = entradas − custo de vida − economias: o que sobrou livre.{' '}
           <b>Economizado</b> = economias ÷ entradas. <b>Diário médio</b> = diários lançados ÷ dias que já passaram no mês.
         </p>
+        <h2>como funcionam as tags?</h2>
+        <p>
+          Tags agrupam movimentações de qualquer tipo (viagem, casa, filhos…). Marque uma ou mais ao adicionar ou editar, e veja quanto cada tag movimentou no mês em tags. No
+          avançado de cada tag, você escolhe se as movimentações dela entram nos saldos, na performance, no economizado, no custo de vida e no diário médio. Apagar uma tag só
+          tira a etiqueta: as movimentações continuam.
+        </p>
         <h2>o que é conferir o dia?</h2>
         <p>Toque no número do dia na grade de saldos para marcar que você já revisou os gastos dele. O dia ganha um canto verde.</p>
         <h2>como instalar no iPhone?</h2>
