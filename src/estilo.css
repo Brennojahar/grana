@@ -1720,34 +1720,43 @@ select {
     border-bottom: 2px solid var(--texto);
   }
 
-  /* a coluna do meio entra deslizando quando o dedo troca o tipo */
-  tbody.desliza-esq .celula-tipo {
-    animation: vem-da-direita 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
-  }
-  tbody.desliza-dir .celula-tipo {
-    animation: vem-da-esquerda 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
-  }
 }
 
-@keyframes vem-da-direita {
-  from {
-    transform: translateX(40%);
-    opacity: 0;
-  }
+/* ---------- faixa de tipos do celular: segue o dedo, assenta com mola (ver useFaixa) ---------- */
+
+.tabela.cheia {
+  table-layout: fixed;
 }
 
-@keyframes vem-da-esquerda {
-  from {
-    transform: translateX(-40%);
-    opacity: 0;
-  }
+.col-faixa {
+  padding: 0;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  tbody.desliza-esq .celula-tipo,
-  tbody.desliza-dir .celula-tipo {
-    animation: none;
-  }
+.janela {
+  overflow: hidden;
+  width: 100%;
+}
+
+.faixa {
+  display: flex;
+  width: 600%;
+  transform: translate3d(calc(var(--i, 0) * -100% / 6 + var(--x, 0px)), 0, 0);
+  will-change: transform;
+}
+
+.tabela.cheia .faixa > .celula-tipo {
+  flex: 0 0 calc(100% / 6);
+  width: calc(100% / 6);
+}
+
+.tabela.todas tbody,
+.tabela.todas tfoot {
+  animation: aparecer 180ms ease-out;
+}
+
+html,
+body {
+  overscroll-behavior: none;
 }
 
 /* barra de baixo: traço laranja em cima da aba ativa */

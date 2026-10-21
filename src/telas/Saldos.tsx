@@ -9,6 +9,7 @@ import { resumoDiario } from '../lib/motor';
 import { rotulo, TIPOS, type RotuloTipo } from '../lib/rotulos';
 import type { Dia, ResumoDia, Tipo } from '../lib/tipos';
 import { useCelular } from '../lib/useCelular';
+import { useFaixa } from '../lib/useFaixa';
 
 const CAMPO: Record<Tipo, 'entradas' | 'saidas' | 'diarios' | 'economias' | 'cartao'> = {
   entrada: 'entradas',
@@ -65,10 +66,20 @@ export function Saldos() {
   const [recolhidas, setRecolhidas] = useState<Tipo[]>(lerRecolhidas);
   const [listaAberta, setListaAberta] = useState(false);
   const [coluna, setColuna] = useState<ColunaCelular>('entrada');
-  const [deslize, setDeslize] = useState<'esq' | 'dir' | null>(null);
   const linhaHoje = useRef<HTMLTableRowElement | null>(null);
   const grade = useRef<HTMLDivElement>(null);
-  const toque = useRef<{ x: number; y: number } | null>(null);
+
+  // A coluna do meio do celular é uma faixa com os 5 tipos + "todas" lado a lado, que segue o dedo.
+  const indiceColuna = ORDEM_CELULAR.indexOf(coluna);
+  const faixa = useFaixa<HTMLTableElement>({
+    paginas: ORDEM_CELULAR.length,
+    indice: indiceColuna,
+    fixo: coluna === 'todas',
+    // "todas" muda o desenho da tabela: só troca depois que a faixa assentar.
+    aoMudar: (alvo) => ORDEM_CELULAR[alvo] !== 'todas' && setColuna(ORDEM_CELULAR[alvo]),
+    aoAssentar: (alvo) => ORDEM_CELULAR[alvo] === 'todas' && setColuna('todas'),
+  });
+  const colunaNoRotulo = faixa.rotuloArraste !== null ? ORDEM_CELULAR[faixa.rotuloArraste] : coluna;
 
   // No celular `inicio` é o mês na tela; no computador, o primeiro dos 12 meses lado a lado.
   const quantos = celular ? 1 : MESES_NA_TELA;
@@ -116,44 +127,37 @@ export function Saldos() {
   const alternarColuna = (t: Tipo) => setRecolhidas((r) => (r.includes(t) ? r.filter((x) => x !== t) : [...r, t]));
   const opcoesPeriodo = Array.from({ length: 37 }, (_, i) => somarMeses(inicioDoMes(hoje), i - 12));
 
-  // Deslizar o dedo para os lados troca o tipo da coluna do meio (o saldo fica parado).
-  const inicioToque = (e: React.TouchEvent) => {
-    const t = e.touches[0];
-    toque.current = { x: t.clientX, y: t.clientY };
-  };
-  const fimToque = (e: React.TouchEvent) => {
-    const t0 = toque.current;
-    toque.current = null;
-    if (!t0) return;
-    const t = e.changedTouches[0];
-    const dx = t.clientX - t0.x;
-    const dy = t.clientY - t0.y;
-    if (Math.abs(dx) < 50 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
-    const i = ORDEM_CELULAR.indexOf(coluna) + (dx < 0 ? 1 : -1);
-    if (i < 0 || i >= ORDEM_CELULAR.length) return;
-    setDeslize(dx < 0 ? 'esq' : 'dir');
-    setColuna(ORDEM_CELULAR[i]);
-  };
-
-  const celulaTipo = (r: ResumoDia, c: RotuloTipo, rotuloDia: string, recolhida = false) => {
+  const conteudoTipo = (r: ResumoDia, c: RotuloTipo, rotuloDia: string, recolhida = false) => {
     const v = r[CAMPO[c.tipo]];
     const zero = Math.abs(v) < 0.005;
     const previsto = c.tipo === 'diario' && r.diarioPrevisto;
     return (
-      <td key={c.tipo}>
-        <div className={`celula-tipo${zero ? ' zero' : ''}${recolhida ? ' recolhida' : ''}`}>
-          <button className="add" onClick={() => lancar(r.dia, c.tipo)} aria-label={`Adicionar movimentação em ${c.plural} do dia ${rotuloDia}`}>
-            <TipoIcone tipo={c.tipo} apagado={zero} />
+      <div key={c.tipo} className={`celula-tipo${zero ? ' zero' : ''}${recolhida ? ' recolhida' : ''}`}>
+        <button className="add" onClick={() => lancar(r.dia, c.tipo)} aria-label={`Adicionar movimentação em ${c.plural} do dia ${rotuloDia}`}>
+          <TipoIcone tipo={c.tipo} apagado={zero} />
+        </button>
+        {!recolhida && (
+          <button className={`valor${previsto ? ' previsto' : ''}`} onClick={() => verDia(r.dia, c.tipo)} aria-label={`Ver movimentações de ${c.plural} do dia ${rotuloDia}`}>
+            {moeda(v)}
           </button>
-          {!recolhida && (
-            <button className={`valor${previsto ? ' previsto' : ''}`} onClick={() => verDia(r.dia, c.tipo)} aria-label={`Ver movimentações de ${c.plural} do dia ${rotuloDia}`}>
-              {moeda(v)}
-            </button>
-          )}
-        </div>
-      </td>
+        )}
+      </div>
     );
   };
+
+  const celulaTipo = (r: ResumoDia, c: RotuloTipo, rotuloDia: string, recolhida = false) => <td key={c.tipo}>{conteudoTipo(r, c, rotuloDia, recolhida)}</td>;
+
+  /** Célula da faixa: os 5 tipos lado a lado (+ uma página vazia para "todas"); só a da vez aparece. */
+  const celulaFaixa = (conteudos: React.ReactNode[]) => (
+    <td className="col-faixa">
+      <div className="janela">
+        <div className="faixa">
+          {conteudos}
+          <div className="celula-tipo pagina-todas" aria-hidden="true" />
+        </div>
+      </div>
+    </td>
+  );
 
   const classesLinha = (r: ResumoDia) => {
     const sem = diaDaSemana(r.dia);
@@ -176,6 +180,18 @@ export function Saldos() {
     </td>
   );
 
+  const totalTipo = (c: RotuloTipo, doMes: ResumoDia[]) => {
+    const soma = doMes.reduce((s, r) => s + r[CAMPO[c.tipo]], 0);
+    return (
+      <div key={c.tipo} className={`celula-tipo${Math.abs(soma) < 0.005 ? ' zero' : ''}`}>
+        <span className="add">
+          <TipoIcone tipo={c.tipo} />
+        </span>
+        <span className="valor">{moeda(soma)}</span>
+      </div>
+    );
+  };
+
   /* ---------- celular: um mês, uma coluna de tipo por vez ---------- */
 
   if (celular) {
@@ -188,8 +204,14 @@ export function Saldos() {
     return (
       <>
         <BarraMes mes={inicio} setMes={setInicio} onHoje={irPraHoje} />
-        <div className="grade-saldos" ref={grade} onTouchStart={inicioToque} onTouchEnd={fimToque}>
-          <table className={`tabela cheia${todas ? ' todas' : ''}`}>
+        <div className="grade-saldos" ref={grade} {...faixa.eventos}>
+          <table className={`tabela cheia${todas ? ' todas' : ''}`} ref={faixa.ref}>
+            {/* Larguras fixas: sem isso a célula cresce para caber a faixa inteira (6× mais larga). */}
+            <colgroup>
+              <col style={{ width: 42 }} />
+              <col />
+              <col style={{ width: '42%' }} />
+            </colgroup>
             <thead>
               <tr>
                 <th className="titulo-mes" colSpan={3} />
@@ -199,18 +221,11 @@ export function Saldos() {
                 <th>
                   <label className="seletor-tipo">
                     <span className="pilula-tipo">
-                      {todas ? <IconeTodas /> : <TipoIcone tipo={coluna as Tipo} />}
-                      {nomeColuna(coluna)}
+                      {colunaNoRotulo === 'todas' ? <IconeTodas /> : <TipoIcone tipo={colunaNoRotulo} />}
+                      {nomeColuna(colunaNoRotulo)}
                       <IconeChevronBaixo />
                     </span>
-                    <select
-                      value={coluna}
-                      onChange={(e) => {
-                        setDeslize(null);
-                        setColuna(e.target.value as ColunaCelular);
-                      }}
-                      aria-label="Coluna"
-                    >
+                    <select value={coluna} onChange={(e) => faixa.irPara(ORDEM_CELULAR.indexOf(e.target.value as ColunaCelular))} aria-label="Coluna">
                       {ORDEM_CELULAR.map((c) => (
                         <option key={c} value={c}>
                           {nomeColuna(c)}
@@ -226,14 +241,14 @@ export function Saldos() {
                 </th>
               </tr>
             </thead>
-            <tbody key={`${coluna}-${inicio}`} className={deslize ? `desliza-${deslize}` : undefined}>
+            <tbody>
               {doMes.map((r, i) => {
                 const rotuloDia = `${i + 1} de ${nomeMes(m0)} de ${ano}`;
                 if (!todas) {
                   return (
                     <tr key={r.dia} className={classesLinha(r)} ref={r.dia === hoje ? linhaHoje : undefined}>
                       {celulaDia(r, i + 1, rotuloDia)}
-                      {celulaTipo(r, tiposNaColuna[0], rotuloDia)}
+                      {celulaFaixa(TIPOS.map((c) => conteudoTipo(r, c, rotuloDia)))}
                       {celulaSaldo(r, rotuloDia)}
                     </tr>
                   );
@@ -252,23 +267,21 @@ export function Saldos() {
               })}
             </tbody>
             <tfoot>
-              {tiposNaColuna.map((c, j) => {
-                const soma = doMes.reduce((s, r) => s + r[CAMPO[c.tipo]], 0);
-                return (
+              {todas ? (
+                tiposNaColuna.map((c, j) => (
                   <tr key={c.tipo}>
                     {j === 0 && <td className="col-dia" rowSpan={tiposNaColuna.length} />}
-                    <td>
-                      <div className={`celula-tipo${Math.abs(soma) < 0.005 ? ' zero' : ''}`}>
-                        <span className="add">
-                          <TipoIcone tipo={c.tipo} />
-                        </span>
-                        <span className="valor">{moeda(soma)}</span>
-                      </div>
-                    </td>
+                    <td>{totalTipo(c, doMes)}</td>
                     {j === 0 && <td className="col-saldo" rowSpan={tiposNaColuna.length} />}
                   </tr>
-                );
-              })}
+                ))
+              ) : (
+                <tr>
+                  <td className="col-dia" />
+                  {celulaFaixa(TIPOS.map((c) => totalTipo(c, doMes)))}
+                  <td className="col-saldo" />
+                </tr>
+              )}
             </tfoot>
           </table>
         </div>
