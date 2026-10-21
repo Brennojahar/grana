@@ -6,7 +6,7 @@ import { movimentos, resumoDiario } from '../lib/motor';
 import { rotulo, TIPOS } from '../lib/rotulos';
 import type { Dia, Movimento, Tipo } from '../lib/tipos';
 import { FormLancamento } from './FormLancamento';
-import { IconeChevronBaixo, IconeChevronDir, IconeChevronEsq, IconeFechar, IconeFiltro, IconeMais, PrevisaoIcone, TipoIcone } from './Icones';
+import { IconeChevronBaixo, IconeChevronDir, IconeChevronEsq, IconeFechar, IconeFiltro, IconeMais, IconeVoltar, PrevisaoIcone, TipoIcone } from './Icones';
 
 type Aberta = { qual: 'novo'; data: Dia; tipo?: Tipo } | { qual: 'editar'; mov: Movimento } | null;
 
@@ -123,7 +123,12 @@ function GavetaDia({ dia, filtro, onMudar, onFechar, onEditar, onAdicionar }: Pr
       <aside className="gaveta" role="dialog" aria-label={`Movimentações de ${dd} de ${nomeMes(m0)}`}>
         <div className="cabeca-gaveta">
           <button className="icone-botao" onClick={onFechar} aria-label="Fechar">
-            <IconeFechar />
+            <span className="so-largo">
+              <IconeFechar />
+            </span>
+            <span className="so-celular">
+              <IconeVoltar />
+            </span>
           </button>
           <div className="dia-gaveta">
             <button className="icone-botao" onClick={() => onMudar(somarDias(dia, -1), filtro)} aria-label="Dia anterior">
@@ -178,7 +183,16 @@ function GavetaDia({ dia, filtro, onMudar, onFechar, onEditar, onAdicionar }: Pr
               <span className="valor suave">{moeda(resumo.diarios)}</span>
             </div>
           )}
-          {movs.length === 0 && !mostrarPrevisao && <p className="meta" style={{ padding: '18px 6px' }}>nenhuma movimentação {filtro ? `de ${rotulo(filtro).nome} ` : ''}neste dia.</p>}
+          {movs.length === 0 && !mostrarPrevisao && (
+            <div className="vazio-gaveta">
+              <button onClick={(e) => onAdicionar(e.currentTarget)} aria-label="Adicionar neste dia">
+                <IconeMais />
+              </button>
+              nada {filtro ? `de ${rotulo(filtro).plural} ` : ''}por aqui ainda.
+              <br />
+              toque no + para adicionar.
+            </div>
+          )}
 
           {resumo && (
             <div className={`saldo-gaveta${resumo.saldo < -0.004 ? ' neg' : ''}`}>

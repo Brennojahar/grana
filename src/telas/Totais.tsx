@@ -1,12 +1,13 @@
 import { useMemo, useState, type ReactNode } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
-import { BarraTitulo } from '../componentes/BarraTitulo';
+import { Link, useNavigate, useParams } from 'react-router-dom';
+import { BarraMes, BarraTitulo } from '../componentes/BarraTitulo';
 import { IconeChevronDir, IconeChevronEsq, PrevisaoIcone, TipoIcone } from '../componentes/Icones';
 import { inicioDoMes, nomeMes, partes, somarMeses } from '../lib/datas';
 import { useGrana } from '../lib/estado';
 import { moeda } from '../lib/formato';
 import { totaisAno, totaisMes, type TotaisMes } from '../lib/motor';
 import { TIPOS } from '../lib/rotulos';
+import { useCelular } from '../lib/useCelular';
 
 const MESES_CURTOS = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
 const pct = new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -71,15 +72,22 @@ function SeletorMes({ mes, setMes, rotulo }: { mes: string; setMes(m: string): v
 export function Totais() {
   const { dados, hoje } = useGrana();
   const navegar = useNavigate();
+  const celular = useCelular();
   const [mes, setMes] = useState(() => inicioDoMes(hoje));
   const t = useMemo(() => totaisMes(dados, mes, hoje), [dados, mes, hoje]);
   const [ano, m0] = partes(mes);
+  const previstoNoMes = t.custoDeVidaPrevisto - t.custoDeVida;
+  const diasPrevistos = t.previsaoDiaria > 0 ? Math.round(previstoNoMes / t.previsaoDiaria) : 0;
 
   const abrir = (m: Metrica) => navegar(`/totais/${m}?ano=${ano}`);
 
   return (
     <>
-      <BarraTitulo titulo="totais" centro={<SeletorMes mes={mes} setMes={setMes} rotulo={`${MESES_CURTOS[m0]}/${ano}`} />} />
+      {celular ? (
+        <BarraMes mes={mes} setMes={setMes} onHoje={() => setMes(inicioDoMes(hoje))} />
+      ) : (
+        <BarraTitulo titulo="totais" centro={<SeletorMes mes={mes} setMes={setMes} rotulo={`${MESES_CURTOS[m0]}/${ano}`} />} />
+      )}
       <div className="pagina">
         <div className="rotulo">cálculos do mês</div>
         <div className="cartoes">
@@ -129,14 +137,35 @@ export function Totais() {
           {TIPOS.map((tp) => {
             const v = { entrada: t.entradas, saida: t.saidas, diario: t.diarios, economia: t.economias, cartao: t.cartao }[tp.tipo];
             return (
-              <div className="linha-caixa" key={tp.tipo}>
+              <Link className="linha-caixa" key={tp.tipo} to={`/movimentacoes?mes=${mes.slice(0, 7)}&tipo=${tp.tipo}`}>
                 <TipoIcone tipo={tp.tipo} tamanho={20} />
-                <span className="forte">{tp.plural}</span>
+                <span className="forte">{tp.tipo === 'cartao' ? 'gastos com cartão' : tp.plural}</span>
                 <span className="fim">{moeda(v)}</span>
-              </div>
+              </Link>
             );
           })}
+          <Link className="linha-caixa" to={`/movimentacoes?mes=${mes.slice(0, 7)}`}>
+            <span className="forte">ver todas</span>
+            <span className="fim">
+              <IconeChevronDir />
+            </span>
+          </Link>
         </div>
+
+        {diasPrevistos > 0 && (
+          <>
+            <div className="rotulo" style={{ marginTop: 28 }}>
+              previsão de diários do mês
+            </div>
+            <div className="caixa">
+              <div className="linha-caixa">
+                <PrevisaoIcone tamanho={20} />
+                <span className="forte">previsão de diário × {diasPrevistos}</span>
+                <span className="fim">{moeda(previstoNoMes)}</span>
+              </div>
+            </div>
+          </>
+        )}
         <p className="meta" style={{ marginTop: 14 }}>
           {nomeMes(m0)}: os cartões contam a previsão de diário nos dias que ainda não chegaram.
         </p>

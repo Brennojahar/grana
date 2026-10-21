@@ -7,6 +7,7 @@ import { ProvedorGrana, useGrana } from './lib/estado';
 import { Entrar } from './telas/Entrar';
 import { Horizonte } from './telas/Horizonte';
 import { Ajuda, Cartoes, Configuracoes, Menu, Perfil, PrevisaoDiario, Repeticoes } from './telas/Menu';
+import { Movimentacoes } from './telas/Movimentacoes';
 import { EVENTO_IR_PRA_HOJE, Saldos } from './telas/Saldos';
 import { Totais, TotaisMetrica } from './telas/Totais';
 
@@ -31,6 +32,7 @@ function Portao() {
           <Route path="horizonte" element={<Horizonte />} />
           <Route path="totais" element={<Totais />} />
           <Route path="totais/:metrica" element={<TotaisMetrica />} />
+          <Route path="movimentacoes" element={<Movimentacoes />} />
           <Route path="menu" element={<Menu />} />
           <Route path="menu/perfil" element={<Perfil />} />
           <Route path="menu/previsao-diario" element={<PrevisaoDiario />} />

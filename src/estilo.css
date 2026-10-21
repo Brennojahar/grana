@@ -1646,3 +1646,226 @@ select {
     border-top-right-radius: 0;
   }
 }
+
+/* ---------- topo do celular: hoje · ‹ mês › · horizonte ---------- */
+
+.barra-mes {
+  grid-template-columns: 40px 1fr 40px !important;
+}
+
+.barra-mes .seletor {
+  justify-self: center;
+}
+
+.barra-mes > :last-child {
+  justify-self: end;
+}
+
+.mes-atual {
+  min-width: 76px;
+  text-align: center;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+/* pílula do tipo no cabeçalho da coluna (celular) */
+.pilula-tipo {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 10px 0 8px;
+  border: 2px solid var(--linha);
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+@media (max-width: 699px) {
+  .seletor-tipo {
+    padding: 0 6px;
+  }
+
+  /* modo "todas": cada dia empilha as 5 linhas de tipo; dia e saldo ocupam a altura toda */
+  .tabela.todas td[rowspan] {
+    position: relative;
+  }
+  .tabela.todas td[rowspan] > button {
+    position: absolute;
+    inset: 0;
+    height: auto;
+  }
+  .tabela.todas td[rowspan] > .saldo {
+    display: flex;
+    align-items: flex-start;
+    justify-content: flex-end;
+    padding-top: 11px;
+  }
+  .tabela.todas td[rowspan] > .dia {
+    align-content: start;
+    padding-top: 11px;
+  }
+  .tabela.todas tr.sub td {
+    border-bottom-color: var(--linha-suave);
+  }
+  .tabela.todas tr.hoje.sub td:not([rowspan]) {
+    border-bottom: 1px solid var(--linha-suave);
+  }
+  .tabela.todas tr.ultima-sub td {
+    border-bottom: 1px solid var(--linha);
+  }
+  .tabela.todas tr.hoje.ultima-sub td,
+  .tabela.todas tr.hoje td[rowspan] {
+    border-bottom: 2px solid var(--texto);
+  }
+
+  /* a coluna do meio entra deslizando quando o dedo troca o tipo */
+  tbody.desliza-esq .celula-tipo {
+    animation: vem-da-direita 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+  tbody.desliza-dir .celula-tipo {
+    animation: vem-da-esquerda 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+}
+
+@keyframes vem-da-direita {
+  from {
+    transform: translateX(40%);
+    opacity: 0;
+  }
+}
+
+@keyframes vem-da-esquerda {
+  from {
+    transform: translateX(-40%);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  tbody.desliza-esq .celula-tipo,
+  tbody.desliza-dir .celula-tipo {
+    animation: none;
+  }
+}
+
+/* barra de baixo: traço laranja em cima da aba ativa */
+.navegacao a {
+  position: relative;
+}
+
+.navegacao a[aria-current='page']::before {
+  content: '';
+  position: absolute;
+  top: -1px;
+  left: 18%;
+  right: 18%;
+  height: 3px;
+  border-radius: 0 0 3px 3px;
+  background: var(--laranja);
+}
+
+/* ---------- dia em tela cheia no celular ---------- */
+
+.so-celular {
+  display: none !important;
+}
+
+@media (max-width: 699px) {
+  .so-celular {
+    display: inline-flex !important;
+  }
+  .gaveta {
+    width: 100%;
+    border-left: 0;
+    animation-name: aparecer;
+  }
+  .fundo-gaveta {
+    display: none;
+  }
+}
+
+.vazio-gaveta {
+  display: grid;
+  justify-items: center;
+  gap: 14px;
+  padding: 60px 24px;
+  text-align: center;
+  color: var(--suave);
+  font-size: 14px;
+}
+
+.vazio-gaveta button {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  border: 2px solid var(--linha);
+  display: grid;
+  place-items: center;
+  color: var(--texto);
+}
+
+/* ---------- totais em lista no celular ---------- */
+
+@media (max-width: 699px) {
+  .pagina {
+    padding-top: 16px;
+  }
+  .cartoes {
+    display: block;
+    border-top: 1px solid var(--linha);
+  }
+  .cartao-total {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    grid-template-areas:
+      'titulo valor'
+      'formula sub';
+    align-items: center;
+    gap: 6px 12px;
+    width: 100%;
+    min-height: 0;
+    padding: 16px 0;
+    border: 0;
+    border-bottom: 1px solid var(--linha);
+    border-radius: 0;
+  }
+  .cartao-total h3 {
+    grid-area: titulo;
+    font-size: 15px;
+  }
+  .cartao-total .formula {
+    grid-area: formula;
+  }
+  .cartao-total .formula .tipo-icone {
+    width: 16px;
+    height: 16px;
+  }
+  .cartao-total .grande {
+    grid-area: valor;
+    margin: 0;
+    font-size: 15px;
+    text-align: right;
+  }
+  .cartao-total .sub {
+    grid-area: sub;
+    margin: 0;
+    justify-content: flex-end;
+    font-size: 12px;
+  }
+  .cartao-total .progresso {
+    max-width: 70px;
+    height: 12px;
+  }
+  .caixa {
+    border-left: 0;
+    border-right: 0;
+    border-radius: 0;
+  }
+  .caixa > .linha-caixa,
+  .caixa > * > .linha-caixa {
+    padding-left: 0;
+    padding-right: 0;
+  }
+}
