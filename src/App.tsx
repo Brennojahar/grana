@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { BrowserRouter, Link, NavLink, Navigate, Outlet, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { ProvedorFolhas, useFolhas } from './componentes/Folhas';
 import { IconeAdicionar, IconeHoje, IconeHorizonte, IconeMenu, IconeRecolher, IconeSaldos, IconeTags, IconeTotais } from './componentes/Icones';
+import { Marca } from './componentes/Marca';
 import { partes } from './lib/datas';
 import { ProvedorGrana, useGrana } from './lib/estado';
 import { Entrar } from './telas/Entrar';
@@ -88,7 +89,7 @@ function Casca() {
     <div className={`casca${recolhida ? ' recolhida' : ''}`}>
       <nav className="lateral" aria-label="Principal">
         <Link to="/" className="logo" aria-label="grana.com, início">
-          <span className="logo-marca">g.</span>
+          <Marca tamanho={28} />
         </Link>
         <NavLink to="/" end className="item-nav">
           <IconeSaldos />

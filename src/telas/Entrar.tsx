@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Marca } from '../componentes/Marca';
 import { useGrana } from '../lib/estado';
 import { supabase } from '../lib/supabase';
 
@@ -50,8 +51,8 @@ export function Entrar() {
 
   return (
     <main className="entrar">
-      <div className="logo" style={{ padding: 0, gap: 10, fontWeight: 700, fontSize: 18 }}>
-        <span className="logo-marca">g.</span> grana
+      <div className="logo" style={{ padding: 0, height: 'auto' }}>
+        <Marca tipo="grana" tamanho={64} />
       </div>
       <form className="entrar-corpo" onSubmit={enviar}>
         <h1>{titulo}</h1>

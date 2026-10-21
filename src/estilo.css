@@ -202,17 +202,10 @@ a {
   margin-bottom: 14px;
 }
 
-.logo-marca {
-  display: grid;
-  place-items: center;
-  width: 26px;
-  height: 22px;
-  border-radius: 6px;
-  background: var(--laranja);
-  color: #fff;
-  font-weight: 800;
-  font-size: 14px;
-  letter-spacing: -0.04em;
+.marca,
+.marca img {
+  display: block;
+  flex: none;
 }
 
 .item-nav {

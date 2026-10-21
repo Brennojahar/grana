@@ -1,5 +1,5 @@
 // grana.com — guarda a casca do app para abrir sem internet. Dados nunca passam por aqui.
-const CACHE = 'grana-v2';
+const CACHE = 'grana-v3';
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(['./', './manifest.webmanifest', './icone-192.png'])));
