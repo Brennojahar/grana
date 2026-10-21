@@ -53,13 +53,13 @@ export function Grafico({ dias }: { dias: ResumoDia[] }) {
       aria-label={`Saldo projetado de ${rotuloDia(dias[0].dia)} a ${rotuloDia(dias.at(-1)!.dia)}`}
     >
       <svg viewBox={`0 0 ${L} ${A + 22}`} preserveAspectRatio="none" style={{ height: 'clamp(180px, 28vw, 300px)' }}>
-        <path d={g.area} fill="var(--tinta)" opacity={0.12} />
-        <path d={g.linha} fill="none" stroke="var(--tinta)" strokeWidth={2.2} vectorEffect="non-scaling-stroke" strokeLinejoin="round" />
-        <line x1={0} x2={L} y1={g.zero} y2={g.zero} stroke="var(--tinta)" strokeWidth={1} vectorEffect="non-scaling-stroke" strokeDasharray={g.temNegativo ? '4 4' : undefined} />
+        <path d={g.area} fill="var(--entrada)" opacity={0.16} />
+        <path d={g.linha} fill="none" stroke="var(--entrada)" strokeWidth={2.2} vectorEffect="non-scaling-stroke" strokeLinejoin="round" />
+        <line x1={0} x2={L} y1={g.zero} y2={g.zero} stroke="var(--linha-forte)" strokeWidth={1} vectorEffect="non-scaling-stroke" strokeDasharray={g.temNegativo ? '4 4' : undefined} />
         {g.meses.map((m) => (
-          <line key={m.x} x1={m.x} x2={m.x} y1={A - 4} y2={A + 4} stroke="var(--tinta)" strokeWidth={1} vectorEffect="non-scaling-stroke" />
+          <line key={m.x} x1={m.x} x2={m.x} y1={A - 4} y2={A + 4} stroke="var(--linha-forte)" strokeWidth={1} vectorEffect="non-scaling-stroke" />
         ))}
-        {d && <line x1={g.x(foco!)} x2={g.x(foco!)} y1={0} y2={A} stroke="var(--tinta)" strokeWidth={1} vectorEffect="non-scaling-stroke" />}
+        {d && <line x1={g.x(foco!)} x2={g.x(foco!)} y1={0} y2={A} stroke="var(--linha-forte)" strokeWidth={1} vectorEffect="non-scaling-stroke" />}
       </svg>
       <div style={{ position: 'relative', height: 14, marginTop: -14 }}>
         {g.meses.map((m) => (

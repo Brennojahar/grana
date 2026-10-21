@@ -41,7 +41,7 @@ export function Folha({ titulo, meta, onFechar, children }: Props) {
             </h2>
           </div>
           <button className="botao" onClick={onFechar} aria-label="Fechar">
-            Fechar
+            fechar
           </button>
         </div>
         {children}

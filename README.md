@@ -1,6 +1,6 @@
 # grana.com
 
-Seu dinheiro, dia a dia: saldo projetado para os próximos 12 meses, livro do mês e totais do ano.
+Seu dinheiro, dia a dia: grade de saldos com os meses lado a lado, totais do mês e do ano e o horizonte de 12 meses.
 App web instalável (PWA) com React + Vite, dados no Supabase.
 
 ## Como o saldo é calculado
@@ -42,6 +42,6 @@ Abra o endereço publicado no **Safari** → **Compartilhar** → **Adicionar à
 ## Pastas
 
 - `src/lib`: motor de cálculo, datas, armazenamento (local e Supabase) e operações de edição.
-- `src/telas`: Hoje, Mês, Totais, Ajustes, Entrar.
+- `src/telas`: Saldos (grade de meses), Totais, Horizonte, Ajustes, Entrar.
 - `src/componentes`: folha de lançamento, detalhe do dia, gráfico.
 - `dados-privados/`: a exportação da conta antiga. Fica **fora do git**.

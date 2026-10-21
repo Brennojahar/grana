@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
+import { BarraTitulo } from '../componentes/BarraTitulo';
 import { nomeTipo } from '../componentes/Folhas';
+import { TipoIcone } from '../componentes/Icones';
 import { Valor } from '../componentes/Valor';
 import { rotuloDia, somarDias } from '../lib/datas';
 import { useGrana } from '../lib/estado';
@@ -53,16 +55,9 @@ export function Ajustes() {
 
   return (
     <>
-      <section className="hero">
-        <span className="meta">Ajustes</span>
-        <h1 className="titulo" style={{ marginTop: 6 }}>
-          Do seu
-          <br />
-          jeito
-        </h1>
-      </section>
+      <BarraTitulo titulo="ajustes" />
 
-      <section className="secao" id="previsao">
+      <section className="secao" id="previsao" style={{ paddingTop: 4 }}>
         <div className="cabeca-secao">
           <h2 className="subtitulo">Previsão diária</h2>
           <span className="meta-num">{moeda(previsaoDiaria(dados))}/dia</span>
@@ -125,6 +120,7 @@ export function Ajustes() {
             const encerrada = !!r.fim && r.fim < hoje;
             return (
               <li key={r.id} className="item">
+                <TipoIcone tipo={r.tipo} />
                 <span className="item-desc">
                   {r.descricao || nomeTipo(r.tipo)} · <Valor v={r.valor} />
                   <span className="meta suave">
@@ -257,11 +253,11 @@ function LinhaCartao({ cartao }: { cartao: Cartao }) {
       <input aria-label="Nome do cartão" className="item-desc" value={c.nome} onChange={(e) => setC({ ...c, nome: e.target.value })} onBlur={() => salvar(c)} style={{ background: 'none', border: 0, padding: 0 }} />
       <label className="meta">
         fecha{' '}
-        <input inputMode="numeric" value={c.dia_fechamento} onChange={(e) => setC({ ...c, dia_fechamento: Number(e.target.value.replace(/\D/g, '')) })} onBlur={() => salvar(c)} style={{ width: 28, background: 'none', border: 0, borderBottom: '1px solid var(--tinta)' }} />
+        <input inputMode="numeric" value={c.dia_fechamento} onChange={(e) => setC({ ...c, dia_fechamento: Number(e.target.value.replace(/\D/g, '')) })} onBlur={() => salvar(c)} style={{ width: 28, background: 'none', border: 0, borderBottom: '1px solid var(--linha-forte)' }} />
       </label>
       <label className="meta">
         vence{' '}
-        <input inputMode="numeric" value={c.dia_vencimento} onChange={(e) => setC({ ...c, dia_vencimento: Number(e.target.value.replace(/\D/g, '')) })} onBlur={() => salvar(c)} style={{ width: 28, background: 'none', border: 0, borderBottom: '1px solid var(--tinta)' }} />
+        <input inputMode="numeric" value={c.dia_vencimento} onChange={(e) => setC({ ...c, dia_vencimento: Number(e.target.value.replace(/\D/g, '')) })} onBlur={() => salvar(c)} style={{ width: 28, background: 'none', border: 0, borderBottom: '1px solid var(--linha-forte)' }} />
       </label>
       <BotaoConfirmar rotulo="×" rotuloAcessivel={`Remover ${cartao.nome}`} onConfirmar={() => mudar({ salvar: {}, apagar: { cartoes: [cartao.id] } })} />
     </li>

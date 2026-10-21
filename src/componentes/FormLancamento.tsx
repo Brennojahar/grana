@@ -5,27 +5,28 @@ import { lerValor, moeda, valorParaCampo } from '../lib/formato';
 import { apagar, criar, editar, type Escopo } from '../lib/operacoes';
 import type { Dia, Frequencia, Movimento, Tipo } from '../lib/tipos';
 import { Folha } from './Folha';
+import { TipoIcone } from './Icones';
 
 export const TIPOS: { tipo: Tipo; nome: string; dica: string }[] = [
-  { tipo: 'entrada', nome: 'Entrada', dica: 'dinheiro que chega' },
-  { tipo: 'saida', nome: 'Saída', dica: 'contas e gastos fixos' },
-  { tipo: 'diario', nome: 'Diário', dica: 'gasto do dia a dia; no dia lançado, substitui a previsão' },
-  { tipo: 'cartao', nome: 'Cartão', dica: 'fatura ou compra no cartão' },
-  { tipo: 'economia', nome: 'Economia', dica: 'o que você separou para guardar' },
+  { tipo: 'entrada', nome: 'entrada', dica: 'dinheiro que chega' },
+  { tipo: 'saida', nome: 'saída', dica: 'contas e gastos fixos' },
+  { tipo: 'diario', nome: 'diário', dica: 'gasto do dia a dia; no dia lançado, substitui a previsão' },
+  { tipo: 'cartao', nome: 'cartão', dica: 'fatura ou compra no cartão' },
+  { tipo: 'economia', nome: 'economia', dica: 'o que você separou para guardar' },
 ];
 
 const FREQUENCIAS: { f: Frequencia | ''; nome: string }[] = [
-  { f: '', nome: 'Não repete' },
-  { f: 'mensal', nome: 'Todo mês' },
-  { f: 'semanal', nome: 'Toda semana' },
-  { f: 'anual', nome: 'Todo ano' },
-  { f: 'diaria', nome: 'Todo dia' },
+  { f: '', nome: 'não repete' },
+  { f: 'mensal', nome: 'todo mês' },
+  { f: 'semanal', nome: 'toda semana' },
+  { f: 'anual', nome: 'todo ano' },
+  { f: 'diaria', nome: 'todo dia' },
 ];
 
 const ESCOPOS: { e: Escopo; nome: string }[] = [
-  { e: 'esta', nome: 'Só esta' },
-  { e: 'seguintes', nome: 'Esta e as próximas' },
-  { e: 'todas', nome: 'Todas' },
+  { e: 'esta', nome: 'só esta' },
+  { e: 'seguintes', nome: 'esta e as próximas' },
+  { e: 'todas', nome: 'todas' },
 ];
 
 type Props = { onFechar(): void } & ({ novo: { data: Dia; tipo?: Tipo } } | { mov: Movimento });
@@ -72,7 +73,7 @@ export function FormLancamento(props: Props) {
 
   return (
     <Folha
-      titulo={mov ? 'Editar' : 'Lançar'}
+      titulo={mov ? 'editar' : 'lançar'}
       meta={mov ? [rotuloDia(mov.data), recorrente ? `repete · ${posicao ?? ''}` : null].filter(Boolean).join(' · ') : 'novo lançamento'}
       onFechar={props.onFechar}
     >
@@ -83,10 +84,11 @@ export function FormLancamento(props: Props) {
         }}
       >
         <div className="campo">
-          <span className="meta">Tipo</span>
+          <span className="meta">tipo</span>
           <div className="chips" role="radiogroup">
             {TIPOS.map((t) => (
               <button type="button" key={t.tipo} className="botao" aria-pressed={tipo === t.tipo} onClick={() => setTipo(t.tipo)}>
+                <TipoIcone tipo={t.tipo} />
                 {t.nome}
               </button>
             ))}
@@ -95,25 +97,25 @@ export function FormLancamento(props: Props) {
         </div>
 
         <label className="campo campo-valor">
-          <span className="meta">Valor (R$)</span>
+          <span className="meta">valor (R$)</span>
           <input data-foco inputMode="decimal" placeholder="0,00" value={valor} onChange={(e) => setValor(e.target.value)} autoComplete="off" />
         </label>
 
         <label className="campo">
-          <span className="meta">Descrição</span>
+          <span className="meta">descrição</span>
           <input value={descricao} onChange={(e) => setDescricao(e.target.value)} placeholder="aluguel, mercado, salário…" maxLength={80} />
         </label>
 
         <div className="dupla">
           <label className="campo">
-            <span className="meta">Data</span>
+            <span className="meta">data</span>
             <input type="date" value={data} onChange={(e) => setData(e.target.value)} required />
           </label>
           {tipo === 'cartao' ? (
             <label className="campo">
-              <span className="meta">Cartão</span>
+              <span className="meta">cartão</span>
               <select value={cartao} onChange={(e) => setCartao(e.target.value)}>
-                <option value="">Sem cartão</option>
+                <option value="">sem cartão</option>
                 {dados.cartoes.map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.nome}
@@ -123,7 +125,7 @@ export function FormLancamento(props: Props) {
             </label>
           ) : !mov ? (
             <label className="campo">
-              <span className="meta">Repetir</span>
+              <span className="meta">repetir</span>
               <select value={freq} onChange={(e) => setFreq(e.target.value as Frequencia | '')}>
                 {FREQUENCIAS.map((f) => (
                   <option key={f.f} value={f.f}>
@@ -139,7 +141,7 @@ export function FormLancamento(props: Props) {
 
         {tipo === 'cartao' && !mov && (
           <label className="campo">
-            <span className="meta">Repetir</span>
+            <span className="meta">repetir</span>
             <select value={freq} onChange={(e) => setFreq(e.target.value as Frequencia | '')}>
               {FREQUENCIAS.map((f) => (
                 <option key={f.f} value={f.f}>
@@ -159,7 +161,7 @@ export function FormLancamento(props: Props) {
             {!semFim && (
               <>
                 <label className="campo" style={{ marginBottom: 6 }}>
-                  <span className="meta">Quantas vezes</span>
+                  <span className="meta">quantas vezes</span>
                   <input inputMode="numeric" value={vezes} onChange={(e) => setVezes(e.target.value.replace(/\D/g, ''))} placeholder="12" />
                 </label>
                 <label className="marcador">
@@ -178,7 +180,7 @@ export function FormLancamento(props: Props) {
 
         {recorrente && (
           <div className="campo">
-            <span className="meta">Aplicar em</span>
+            <span className="meta">aplicar em</span>
             <div className="chips">
               {ESCOPOS.map((x) => (
                 <button type="button" key={x.e} className="botao" aria-pressed={escopo === x.e} onClick={() => setEscopo(x.e)}>
@@ -198,14 +200,14 @@ export function FormLancamento(props: Props) {
         {confirmarApagar ? (
           <div className="aviso">
             <span className="meta">
-              Apagar {recorrente ? ESCOPOS.find((x) => x.e === escopo)!.nome.toLowerCase() : 'este lançamento'}?
+              apagar {recorrente ? ESCOPOS.find((x) => x.e === escopo)!.nome : 'este lançamento'}?
             </span>
             <span className="acoes" style={{ margin: 0 }}>
               <button type="button" className="botao" onClick={() => setConfirmarApagar(false)}>
-                Não
+                não
               </button>
               <button type="button" className="botao cheio" onClick={remover}>
-                Apagar
+                apagar
               </button>
             </span>
           </div>
@@ -213,11 +215,11 @@ export function FormLancamento(props: Props) {
           <div className="acoes">
             {mov && (
               <button type="button" className="botao" onClick={() => setConfirmarApagar(true)}>
-                Apagar
+                apagar
               </button>
             )}
             <button type="submit" className="botao cheio">
-              Salvar
+              salvar
             </button>
           </div>
         )}

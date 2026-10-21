@@ -5,6 +5,7 @@ import { movimentos, resumoDiario } from '../lib/motor';
 import type { Dia, Movimento, Tipo } from '../lib/tipos';
 import { Folha } from './Folha';
 import { FormLancamento, TIPOS } from './FormLancamento';
+import { TipoIcone } from './Icones';
 import { Valor } from './Valor';
 
 type Aberta = { qual: 'novo'; data: Dia; tipo?: Tipo } | { qual: 'editar'; mov: Movimento } | { qual: 'dia'; dia: Dia } | null;
@@ -60,6 +61,7 @@ function DiaDetalhe({ dia, onFechar, abrir }: { dia: Dia; onFechar(): void; abri
         {movs.map((m) => (
           <li key={m.chave}>
             <button className="item" onClick={() => abrir({ qual: 'editar', mov: m })}>
+              <TipoIcone tipo={m.tipo} />
               <span className="item-desc">
                 {m.descricao || nomeTipo(m.tipo)}
                 <span className="meta suave">
@@ -76,8 +78,9 @@ function DiaDetalhe({ dia, onFechar, abrir }: { dia: Dia; onFechar(): void; abri
         ))}
         {resumo?.diarioPrevisto && (
           <li className="item">
+            <TipoIcone tipo="diario" apagado />
             <span className="item-desc previsto">
-              Previsão de gasto diário
+              previsão de gasto diário
               <span className="meta suave">some quando você lança um diário neste dia</span>
             </span>
             <span className="item-valor previsto">
@@ -89,7 +92,7 @@ function DiaDetalhe({ dia, onFechar, abrir }: { dia: Dia; onFechar(): void; abri
       </ul>
 
       <div className="linha-topo" style={{ marginTop: 18 }}>
-        <span className="meta">Saldo no fim do dia</span>
+        <span className="meta">saldo no fim do dia</span>
         <span className="meta-num">
           <Valor v={resumo?.saldo ?? 0} />
         </span>
@@ -98,11 +101,11 @@ function DiaDetalhe({ dia, onFechar, abrir }: { dia: Dia; onFechar(): void; abri
       <div className="acoes">
         {dia <= hoje && (
           <button className="botao" aria-pressed={feito} onClick={() => marcarCheckin(dia, !feito)}>
-            {feito ? 'Dia conferido ✓' : 'Conferi este dia'}
+            {feito ? 'dia conferido ✓' : 'conferi este dia'}
           </button>
         )}
         <button className="botao cheio" onClick={() => abrir({ qual: 'novo', data: dia })}>
-          Lançar neste dia
+          lançar neste dia
         </button>
       </div>
     </Folha>
